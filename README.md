@@ -72,7 +72,9 @@ ecosg/
 │   │       ├── companies.py     # ESG endpoints
 │   │       ├── portfolio.py     # Combined ESG + quant portfolio screener
 │   │       └── quant.py         # Quant factor endpoints
-│   └── requirements.txt
+│   ├── tests/               # pytest suite (scoring, quant, backtest, API)
+│   ├── requirements.txt
+│   └── requirements-dev.txt # + pytest, httpx
 └── frontend/
     ├── src/
     │   ├── App.tsx
@@ -88,7 +90,11 @@ ecosg/
 
 ## Running locally
 
+Requires Python 3.13 and Node 24.
+
 ### Backend
+
+macOS / Linux:
 
 ```bash
 cd backend
@@ -97,8 +103,34 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+Windows (PowerShell):
+
+```powershell
+cd backend
+python -m venv .venv; .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
 The database is auto-created and seeded with mock data (both ESG and quant factor data) on
-first startup (`backend/app/ecosg.db`, gitignored). API docs at `http://localhost:8000/docs`.
+first startup (`backend/ecosg.db`, gitignored). API docs at `http://localhost:8000/docs`.
+To reseed from scratch, run `python -m app.seed` with the server stopped.
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `ECOSG_DB_PATH` | `backend/ecosg.db` | SQLite file to use (the tests point this at a temp file) |
+| `ECOSG_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated origins allowed to call the API |
+
+### Tests
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest
+```
+
+The suite runs against a throwaway database, never your local `ecosg.db`. CI
+(`.github/workflows/ci.yml`) runs it plus the frontend lint and build on every push and PR.
 
 ### Frontend
 
