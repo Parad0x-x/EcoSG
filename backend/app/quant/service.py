@@ -66,7 +66,7 @@ def run_universe_backtest(db: Session) -> dict:
     universe = data.get_universe(db)
     tickers = universe["ticker"].tolist()
     prices = data.fetch_price_history(db, tickers)
-    benchmark = data.fetch_benchmark(n_days=len(prices))
+    benchmark = data.fetch_benchmark(prices.index)
 
     cfg = RunConfig()
     from .config import TRANSACTION_COST_BPS

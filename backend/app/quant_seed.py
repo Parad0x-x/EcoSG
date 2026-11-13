@@ -119,10 +119,11 @@ def generate_price_history(ticker: str, current_price: float, one_year_return_pc
     return pd.Series(path, index=dates, name=ticker)
 
 
-def generate_benchmark_series(n_days: int = 520) -> pd.Series:
-    """Synthetic benchmark ('SPY'-like) series for the backtest engine."""
+def generate_benchmark_series(dates: pd.DatetimeIndex) -> pd.Series:
+    """Synthetic benchmark ('SPY'-like) series for the backtest engine, on the
+    given dates (the stored price dates) so it lines up with the universe no
+    matter how long ago the database was seeded."""
     rng = np.random.default_rng(20260830)
-    dates = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=n_days)
-    daily_returns = rng.normal(0.00035, 0.011, n_days)
+    daily_returns = rng.normal(0.00035, 0.011, len(dates))
     path = 100.0 * np.cumprod(1 + daily_returns)
     return pd.Series(path, index=dates, name="SPY")

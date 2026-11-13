@@ -37,3 +37,15 @@ def test_performance_metrics_on_known_returns():
     assert m["Beta vs Benchmark"] == pytest.approx(1.0)
     assert m["Excess CAGR vs Benchmark"] == pytest.approx(0.0)
     assert m["Max Drawdown"] == pytest.approx(-0.005)
+
+
+def test_benchmark_is_generated_on_the_stored_price_dates():
+    from app.quant import data
+
+    # A DB seeded weeks ago has prices ending in the past, not today.
+    dates = pd.bdate_range(end="2026-08-28", periods=N_DAYS)
+
+    bench = data.fetch_benchmark(dates)
+
+    assert bench.index.equals(dates)
+    assert bench.equals(data.fetch_benchmark(dates))  # deterministic, not tied to "today"

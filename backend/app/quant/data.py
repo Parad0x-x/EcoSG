@@ -103,7 +103,7 @@ def fetch_price_history(db: Session, tickers: List[str]) -> pd.DataFrame:
     return prices.sort_index()
 
 
-def fetch_benchmark(n_days: int = 520) -> pd.Series:
-    """Synthetic benchmark ('SPY'-like) series -- see quant_seed.generate_benchmark_series."""
+def fetch_benchmark(dates: pd.DatetimeIndex) -> pd.Series:
+    """Synthetic benchmark ('SPY'-like) series on `dates` -- see quant_seed.generate_benchmark_series."""
     from ..quant_seed import generate_benchmark_series
-    return generate_benchmark_series(n_days=n_days)
+    return generate_benchmark_series(dates)
