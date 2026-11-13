@@ -48,6 +48,10 @@ export default function Portfolio() {
       setError("Weights must be positive numbers.");
       return;
     }
+    if (new Set(holdings.map((h) => h.ticker)).size !== holdings.length) {
+      setError("Each ticker can only appear once. Combine the weights into one row.");
+      return;
+    }
 
     setLoading(true);
     try {

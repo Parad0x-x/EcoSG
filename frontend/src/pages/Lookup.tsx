@@ -3,47 +3,54 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ApiError, fetchCompany, fetchQuantCompany, type CompanyDetail, type QuantCompanyDetail } from "../api";
 import { FactorBar, GradeBadge, PillarBar, ReturnValue } from "../components";
 
+interface LookupResult {
+  ticker: string;
+  company: CompanyDetail | null;
+  quant: QuantCompanyDetail | null;
+  error: string | null;
+}
+
 export default function Lookup() {
-  const { ticker: routeTicker } = useParams();
+  const ticker = useParams().ticker?.trim().toUpperCase();
   const navigate = useNavigate();
-  const [input, setInput] = useState(routeTicker || "");
-  const [company, setCompany] = useState<CompanyDetail | null>(null);
-  const [quant, setQuant] = useState<QuantCompanyDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState(ticker || "");
+  const [result, setResult] = useState<LookupResult | null>(null);
 
+  // The URL is the only trigger: submitting navigates, and this effect loads.
   useEffect(() => {
-    if (routeTicker) {
-      setInput(routeTicker);
-      load(routeTicker);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeTicker]);
+    if (!ticker) return;
+    let stale = false;
+    // Quant coverage is best-effort: a ticker can exist on the ESG side
+    // without quant coverage, so its failure must not block the page.
+    Promise.allSettled([fetchCompany(ticker), fetchQuantCompany(ticker)]).then(([c, q]) => {
+      if (stale) return;
+      setResult({
+        ticker,
+        company: c.status === "fulfilled" ? c.value : null,
+        quant: q.status === "fulfilled" ? q.value : null,
+        error:
+          c.status === "rejected"
+            ? c.reason instanceof ApiError
+              ? c.reason.message
+              : "Failed to look up ticker"
+            : null,
+      });
+    });
+    return () => {
+      stale = true;
+    };
+  }, [ticker]);
 
-  function load(t: string) {
-    if (!t.trim()) return;
-    setLoading(true);
-    setError(null);
-    setQuant(null);
-    fetchCompany(t.trim())
-      .then((c) => setCompany(c))
-      .catch((e) => {
-        setCompany(null);
-        setError(e instanceof ApiError ? e.message : "Failed to look up ticker");
-      })
-      .finally(() => setLoading(false));
-    // Quant coverage is best-effort/separate: a ticker can exist on the ESG
-    // side without quant coverage, so this fetch failing shouldn't block
-    // the rest of the page.
-    fetchQuantCompany(t.trim())
-      .then((q) => setQuant(q))
-      .catch(() => setQuant(null));
-  }
+  const current = result && result.ticker === ticker ? result : null;
+  const loading = Boolean(ticker) && !current;
+  const company = current?.company ?? null;
+  const quant = current?.quant ?? null;
+  const error = current?.error ?? null;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    navigate(`/lookup/${input.trim().toUpperCase()}`);
-    load(input);
+    const next = input.trim().toUpperCase();
+    if (next) navigate(`/lookup/${encodeURIComponent(next)}`);
   }
 
   return (

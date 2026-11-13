@@ -12,19 +12,7 @@ import {
 } from "recharts";
 import { ApiError, fetchCompanies, fetchSectors, type CompanySummary } from "../api";
 import { GradeBadge, ReturnValue } from "../components";
-
-const SECTOR_COLORS: Record<string, string> = {
-  Technology: "#5fd28f",
-  Energy: "#f87171",
-  Utilities: "#60a5fa",
-  Financials: "#fbbf24",
-  "Health Care": "#c084fc",
-  "Consumer Staples": "#4ade80",
-  "Consumer Discretionary": "#fb923c",
-  "Communication Services": "#38bdf8",
-  Materials: "#a3a3a3",
-  Industrials: "#e879f9",
-};
+import { SECTOR_COLORS } from "../sectors";
 
 type SortKey = "ticker" | "composite_score" | "one_year_return_pct";
 
@@ -42,10 +30,19 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    setError(null);
+    let stale = false;
     fetchCompanies(sector || undefined)
-      .then(setCompanies)
-      .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load companies"));
+      .then((data) => {
+        if (stale) return;
+        setCompanies(data);
+        setError(null);
+      })
+      .catch((e) => {
+        if (!stale) setError(e instanceof ApiError ? e.message : "Failed to load companies");
+      });
+    return () => {
+      stale = true;
+    };
   }, [sector]);
 
   const sorted = useMemo(() => {
