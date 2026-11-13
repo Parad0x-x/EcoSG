@@ -13,9 +13,11 @@ data migration.
 """
 from __future__ import annotations
 
+import datetime
+
 from sqlalchemy import Float, ForeignKey, Integer, String, Date
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .database import Base
 
@@ -125,7 +127,7 @@ class PricePoint(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
-    date: Mapped[str] = mapped_column(Date, index=True)
+    date: Mapped[datetime.date] = mapped_column(Date, index=True)
     close: Mapped[float] = mapped_column(Float)
 
     company: Mapped["Company"] = relationship(back_populates="price_points")
@@ -142,8 +144,7 @@ class FinancialMetricOut(BaseModel):
     three_year_annualized_return_pct: float
     volatility_pct: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EsgComponentOut(BaseModel):
@@ -152,8 +153,7 @@ class EsgComponentOut(BaseModel):
     governance_score: float
     controversy_severity: float
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class EsgScoreOut(BaseModel):
@@ -176,8 +176,7 @@ class CompanyOut(BaseModel):
     esg_raw: EsgComponentOut
     esg_score: EsgScoreOut
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class CompanySummaryOut(BaseModel):
@@ -190,8 +189,7 @@ class CompanySummaryOut(BaseModel):
     composite_score: float
     grade: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PortfolioHolding(BaseModel):
