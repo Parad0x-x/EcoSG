@@ -42,6 +42,8 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
@@ -67,6 +69,7 @@ a {
 
 .nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
 }
 
@@ -297,4 +300,17 @@ button.secondary {
   margin-top: 2rem;
   border-top: 1px solid var(--border);
   padding-top: 1rem;
+}
+
+/* Phones: keep the nav and wide tables inside the viewport. */
+@media (max-width: 640px) {
+  .app-header,
+  main {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .panel {
+    overflow-x: auto;
+  }
 }
