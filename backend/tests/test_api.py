@@ -59,3 +59,19 @@ def test_backtest_returns_metrics_and_curve(client):
 
     assert body["equity_curve"]
     assert body["metrics"]["sharpe_ratio"] is not None
+
+
+def test_portfolio_screen_degrades_to_esg_only_and_logs(client, monkeypatch, caplog):
+    from app.quant import service as quant_service
+
+    def boom(_db):
+        raise RuntimeError("quant down")
+
+    monkeypatch.setattr(quant_service, "compute_quant_scores", boom)
+    body = {"holdings": [{"ticker": "AAPL", "weight_pct": 100}]}
+
+    res = client.post("/api/portfolio/screen", json=body)
+
+    assert res.status_code == 200
+    assert res.json()["weighted_quant_score"] is None
+    assert "Quant scoring failed" in caplog.text

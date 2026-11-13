@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -7,6 +9,9 @@ from .. import service
 from ..database import get_db
 from ..models import PortfolioHoldingResult, PortfolioRequest, PortfolioResult
 from ..quant import service as quant_service
+from ..scoring import grade_for_score
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["portfolio"])
 
@@ -28,6 +33,7 @@ def screen_portfolio(payload: PortfolioRequest, db: Session = Depends(get_db)):
     try:
         quant_scored, _cfg = quant_service.compute_quant_scores(db)
     except Exception:
+        logger.exception("Quant scoring failed; returning ESG-only portfolio screen")
         quant_scored = None
 
     results: list[PortfolioHoldingResult] = []
@@ -64,8 +70,6 @@ def screen_portfolio(payload: PortfolioRequest, db: Session = Depends(get_db)):
             quant_composite_score=round(float(quant_row.composite_score), 3) if quant_row is not None else None,
             quant_percentile=float(quant_row.percentile) if quant_row is not None else None,
         ))
-
-    from ..scoring import grade_for_score
 
     # Illustrative "gap" metric: how far weighted return sits from what you'd
     # "expect" if 1 pt of ESG composite score mapped 1:1 to 1 pt of return.
