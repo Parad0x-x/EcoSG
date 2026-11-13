@@ -82,12 +82,15 @@ def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
     portfolio_daily_returns = pd.Series(0.0, index=prices.index)
     turnover_log = {}
     current_weights = pd.Series(dtype=float)
+    first_invested = None
     for i, reb_date in enumerate(rebal_dates):
         history_up_to = prices.loc[:reb_date]
         scores = score_func(reb_date, history_up_to)
         scores = scores.dropna()
         if scores.empty:
             continue
+        if first_invested is None:
+            first_invested = reb_date
         top = scores.head(top_n)
         # inverse-vol position sizing, consistent with portfolio.py's live logic
         vol = daily_returns.loc[:reb_date, top.index].tail(60).std() * np.sqrt(252)
@@ -113,7 +116,10 @@ def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
         weighted_returns.iloc[0] -= cost
         portfolio_daily_returns.loc[period_dates] = weighted_returns
     equity_curve = (1 + portfolio_daily_returns).cumprod()
-    equity_curve = equity_curve[equity_curve.index >= rebal_dates[0]] if len(rebal_dates) else equity_curve
+    # Measure from the first rebalance that actually held positions; the
+    # score warm-up before it is cash at 0% and would dilute every metric.
+    if first_invested is not None:
+        equity_curve = equity_curve[equity_curve.index >= first_invested]
     bench_returns = benchmark_prices.pct_change().fillna(0).reindex(equity_curve.index).fillna(0)
     benchmark_curve = (1 + bench_returns).cumprod()
     metrics = compute_performance_metrics(portfolio_daily_returns.loc[equity_curve.index], bench_returns)
