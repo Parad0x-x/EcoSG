@@ -13,7 +13,10 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ecosg.db")
+DB_PATH = os.environ.get(
+    "ECOSG_DB_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "ecosg.db"),
+)
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
