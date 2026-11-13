@@ -9,6 +9,7 @@ from __future__ import annotations
 from .data_seed import SEED_COMPANIES
 from .database import Base, SessionLocal, engine
 from .models import Company, EsgComponent, FactorFundamentals, FinancialMetric, PricePoint
+from .quant import service as quant_service
 from .quant_seed import generate_fundamentals, generate_price_history
 
 
@@ -78,6 +79,7 @@ def seed() -> None:
             ])
 
         db.commit()
+        quant_service.clear_cache()
         print(f"Seeded {len(SEED_COMPANIES)} companies (ESG + quant factor data).")
     finally:
         db.close()

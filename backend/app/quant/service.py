@@ -25,16 +25,42 @@ def _clean(value: float | None) -> float | None:
     return f if math.isfinite(f) else None
 
 
+# The seeded data is read-only while the server runs, so the quant pipeline
+# (~200 ms) and backtest only need computing once per process.
+# shortcut: cache ignores the session; clear_cache() must run after any write
+# to companies/factor_fundamentals/price_points (seed() does). Swap for a
+# versioned cache once real data is ingested on a schedule.
+_cache: dict[str, object] = {}
+
+
+def clear_cache() -> None:
+    _cache.clear()
+
+
+def load_prices(db: Session) -> pd.DataFrame:
+    """Universe price history, columns in universe (ticker) order."""
+    if "prices" not in _cache:
+        tickers = data.get_universe(db)["ticker"].tolist()
+        prices = data.fetch_price_history(db, tickers)
+        _cache["prices"] = prices[[t for t in tickers if t in prices.columns]]
+    return _cache["prices"].copy()
+
+
 def compute_quant_scores(db: Session) -> tuple[pd.DataFrame, RunConfig]:
     """Full pipeline: universe -> fundamentals + prices -> factors -> composite
     score + rank, for every company ECOSG covers. Returns the scored
     DataFrame (one row per ticker, sorted by rank) and the RunConfig used.
     """
-    universe = data.get_universe(db)
-    tickers = universe["ticker"].tolist()
+    if "scores" not in _cache:
+        _cache["scores"] = _compute_quant_scores(db)
+    scored, cfg = _cache["scores"]
+    return scored.copy(), cfg
+
+
+def _compute_quant_scores(db: Session) -> tuple[pd.DataFrame, RunConfig]:
+    tickers = data.get_universe(db)["ticker"].tolist()
     fund = data.fetch_fundamentals(db, tickers)
-    prices = data.fetch_price_history(db, tickers)
-    prices = prices[[t for t in tickers if t in prices.columns]]
+    prices = load_prices(db)
 
     raw = factors.build_all_factors(fund, prices)
     cfg = RunConfig()
@@ -63,9 +89,13 @@ def run_universe_backtest(db: Session) -> dict:
     the same look-ahead-safe default the original project ships) over the
     full stored synthetic price history vs. the synthetic benchmark.
     """
-    universe = data.get_universe(db)
-    tickers = universe["ticker"].tolist()
-    prices = data.fetch_price_history(db, tickers)
+    if "backtest" not in _cache:
+        _cache["backtest"] = _run_universe_backtest(db)
+    return _cache["backtest"]
+
+
+def _run_universe_backtest(db: Session) -> dict:
+    prices = load_prices(db)
     benchmark = data.fetch_benchmark(prices.index)
 
     cfg = RunConfig()

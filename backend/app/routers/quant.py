@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import service as esg_service
 from ..database import get_db
 from ..models import (
     BacktestSummary,
@@ -11,7 +10,6 @@ from ..models import (
     QuantFactorFamilyScores,
     QuantFactorSummary,
 )
-from ..quant import data as quant_data
 from ..quant import portfolio as quant_portfolio
 from ..quant import service as quant_service
 
@@ -91,8 +89,7 @@ def get_top_picks(db: Session = Depends(get_db)):
     the same output `main.py scan` would hand a scheduler in the original
     standalone bot -- here just read-only, for display."""
     scored, cfg = quant_service.compute_quant_scores(db)
-    tickers = scored["ticker"].tolist()
-    prices = quant_data.fetch_price_history(db, tickers)
+    prices = quant_service.load_prices(db)
     signals = quant_portfolio.generate_signals(scored, prices, cfg, current_holdings={})
     picks = signals[signals["action"] == "BUY"].sort_values("target_weight", ascending=False)
     return [

@@ -82,25 +82,18 @@ def fetch_fundamentals(db: Session, tickers: List[str]) -> pd.DataFrame:
 
 def fetch_price_history(db: Session, tickers: List[str]) -> pd.DataFrame:
     """Wide DataFrame: index=date, columns=ticker, values=close."""
-    companies = (
-        db.query(Company)
+    rows = (
+        db.query(Company.ticker, PricePoint.date, PricePoint.close)
+        .join(PricePoint, PricePoint.company_id == Company.id)
         .filter(Company.ticker.in_(tickers))
         .all()
     )
-    series = {}
-    for c in companies:
-        points = (
-            db.query(PricePoint)
-            .filter(PricePoint.company_id == c.id)
-            .order_by(PricePoint.date)
-            .all()
-        )
-        if not points:
-            continue
-        idx = pd.to_datetime([p.date for p in points])
-        series[c.ticker] = pd.Series([p.close for p in points], index=idx)
-    prices = pd.DataFrame(series)
-    return prices.sort_index()
+    if not rows:
+        return pd.DataFrame()
+    long = pd.DataFrame(rows, columns=["ticker", "date", "close"])
+    prices = long.pivot(index="date", columns="ticker", values="close")
+    prices.index = pd.to_datetime(prices.index)
+    return prices.rename_axis(index=None, columns=None).sort_index()
 
 
 def fetch_benchmark(dates: pd.DatetimeIndex) -> pd.Series:
