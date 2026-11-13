@@ -1,9 +1,12 @@
+import { lazy, Suspense } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import Lookup from "./pages/Lookup";
-import Portfolio from "./pages/Portfolio";
-import QuantFactors from "./pages/QuantFactors";
 import "./index.css";
+
+// Each page is its own chunk, so Recharts only loads on the pages that chart.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Lookup = lazy(() => import("./pages/Lookup"));
+const Portfolio = lazy(() => import("./pages/Portfolio"));
+const QuantFactors = lazy(() => import("./pages/QuantFactors"));
 
 function App() {
   return (
@@ -29,13 +32,15 @@ function App() {
         </nav>
       </header>
       <main>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/lookup" element={<Lookup />} />
-          <Route path="/lookup/:ticker" element={<Lookup />} />
-          <Route path="/quant" element={<QuantFactors />} />
-          <Route path="/portfolio" element={<Portfolio />} />
-        </Routes>
+        <Suspense fallback={<p className="subtitle">Loading…</p>}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/lookup" element={<Lookup />} />
+            <Route path="/lookup/:ticker" element={<Lookup />} />
+            <Route path="/quant" element={<QuantFactors />} />
+            <Route path="/portfolio" element={<Portfolio />} />
+          </Routes>
+        </Suspense>
         <p className="disclaimer">
           ECOSG is a demo MVP. All financial and ESG data shown is mock/illustrative and is not
           sourced from a real data provider. Nothing here is investment advice.
