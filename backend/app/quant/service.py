@@ -100,7 +100,9 @@ def _run_universe_backtest(db: Session) -> dict:
 
     cfg = RunConfig()
     from .config import TRANSACTION_COST_BPS
-    result = backtest.run_backtest(prices, benchmark, cfg, transaction_cost_bps=TRANSACTION_COST_BPS)
+    sectors = data.get_universe(db).set_index("ticker")["sector"]
+    result = backtest.run_backtest(prices, benchmark, cfg, transaction_cost_bps=TRANSACTION_COST_BPS,
+                                   sectors=sectors)
 
     metric_key_map = {
         "CAGR": "cagr",

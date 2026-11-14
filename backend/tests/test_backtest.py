@@ -60,3 +60,41 @@ def test_benchmark_is_generated_on_the_stored_price_dates():
 
     assert bench.index.equals(dates)
     assert bench.equals(data.fetch_benchmark(dates))  # deterministic, not tied to "today"
+
+
+def _fixed_score(as_of, history):
+    return pd.Series({"UP": 2.0, "FLAT": 1.0, "OUT": 0.0})
+
+
+def test_weights_drift_between_rebalances_instead_of_resetting_daily():
+    dates = pd.bdate_range("2024-01-01", periods=80)
+    prices = pd.DataFrame({
+        "UP": 100 * 1.01 ** np.arange(80),
+        "FLAT": np.full(80, 100.0),
+        "OUT": np.full(80, 100.0),
+    }, index=dates)
+    cfg = RunConfig(top_n=2, buffer_multiplier=1.0, position_sizing_method="equal_weight",
+                    max_position_weight=1.0, max_sector_weight=1.0, min_position_weight=0.0)
+
+    res = backtest.run_backtest(prices, prices["FLAT"], cfg, score_func=_fixed_score, transaction_cost_bps=0)
+
+    start, second = res.turnover_by_period.index[:2]
+    k = len(prices.loc[start:second]) - 1
+    # Buy and hold of 50/50: half compounds at 1%/day, half stays flat.
+    assert res.equity_curve.loc[second] == pytest.approx(0.5 * 1.01 ** k + 0.5)
+    # Rebalancing back to 50/50 must trade away the drift, so turnover is positive.
+    assert res.turnover_by_period.loc[second] > 0
+
+
+def test_backtest_sizes_with_the_live_portfolio_functions(monkeypatch):
+    from app.quant import portfolio
+
+    calls = []
+    real = portfolio.size_positions
+    monkeypatch.setattr(portfolio, "size_positions", lambda *a, **k: calls.append(1) or real(*a, **k))
+    prices = _synthetic_prices()
+    sectors = pd.Series({t: "S" + str(i % 3) for i, t in enumerate(prices.columns)})
+
+    backtest.run_backtest(prices, prices.mean(axis=1), RunConfig(), sectors=sectors)
+
+    assert calls

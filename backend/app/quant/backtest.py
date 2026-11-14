@@ -19,11 +19,12 @@ position sizing, cost modeling, performance stats) is agnostic to where the
 scores came from.
 """
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, Optional
 import numpy as np
 import pandas as pd
 from . import config as cfg_module
+from . import portfolio
 from .scoring import cross_sectional_zscore
 
 # ---------------------------------------------------------------------------
@@ -66,55 +67,74 @@ def _rebalance_dates(index: pd.DatetimeIndex, freq: str) -> pd.DatetimeIndex:
         [index[index <= d].max() for d in resampled.index if (index <= d).any()]
     )).unique().sort_values()
 
+def _scores_to_ranked(scores: pd.Series, sectors: Optional[pd.Series]) -> pd.DataFrame:
+    """Score Series -> the scored-DataFrame shape portfolio.py expects."""
+    df = pd.DataFrame({"ticker": scores.index, "composite_score": scores.values})
+    df["rank"] = df["composite_score"].rank(ascending=False, method="first")
+    if sectors is not None:
+        df["sector"] = df["ticker"].map(sectors).fillna("Unknown")
+    return df.sort_values("rank").reset_index(drop=True)
+
 def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
                   score_func: Callable = default_price_only_score,
                   start: Optional[str] = None, end: Optional[str] = None,
                   top_n: Optional[int] = None,
-                  transaction_cost_bps: float = 10.0) -> BacktestResult:
+                  transaction_cost_bps: float = 10.0,
+                  sectors: Optional[pd.Series] = None) -> BacktestResult:
+    """
+    Walk-forward backtest. At each rebalance date the score_func sees only
+    prices up to that date; selection (buffer band) and sizing (inverse vol,
+    position and sector caps) are portfolio.py's live functions, so the
+    backtest trades exactly what the live signal path would. Between
+    rebalances weights drift with prices (buy and hold), and costs are
+    charged on the turnover from the drifted weights to the new targets.
+    `sectors`: optional ticker -> sector map so the sector cap applies.
+    """
     prices = prices.sort_index()
     if start:
         prices = prices[prices.index >= start]
     if end:
         prices = prices[prices.index <= end]
-    top_n = top_n or cfg.top_n
+    if top_n:
+        cfg = replace(cfg, top_n=top_n)
     rebal_dates = _rebalance_dates(prices.index, cfg_module.REBALANCE_FREQUENCY)
     daily_returns = prices.pct_change().fillna(0)
     portfolio_daily_returns = pd.Series(0.0, index=prices.index)
     turnover_log = {}
-    current_weights = pd.Series(dtype=float)
+    drifted_weights = pd.Series(dtype=float)  # holdings as they stand just before a rebalance
     first_invested = None
     for i, reb_date in enumerate(rebal_dates):
         history_up_to = prices.loc[:reb_date]
-        scores = score_func(reb_date, history_up_to)
-        scores = scores.dropna()
+        scores = score_func(reb_date, history_up_to).dropna()
         if scores.empty:
             continue
         if first_invested is None:
             first_invested = reb_date
-        top = scores.head(top_n)
-        # inverse-vol position sizing, consistent with portfolio.py's live logic
-        vol = daily_returns.loc[:reb_date, top.index].tail(60).std() * np.sqrt(252)
-        vol = vol.replace(0, np.nan).fillna(vol.median())
-        inv_vol = 1.0 / vol
-        new_weights = inv_vol / inv_vol.sum()
-        new_weights = new_weights.clip(upper=cfg.max_position_weight)
-        new_weights = new_weights / new_weights.sum()
-        turnover = (new_weights.reindex(current_weights.index.union(new_weights.index), fill_value=0)
-                    - current_weights.reindex(current_weights.index.union(new_weights.index), fill_value=0)
-                    ).abs().sum()
+        ranked = _scores_to_ranked(scores, sectors)
+        held = set(drifted_weights[drifted_weights > 0].index)
+        selected = portfolio.select_candidates(ranked, cfg, current_holdings=held)
+        sized = portfolio.size_positions(selected, history_up_to, cfg)
+        target = pd.Series(sized["weight"].values, index=sized["ticker"].values)
+        names = drifted_weights.index.union(target.index)
+        turnover = (target.reindex(names, fill_value=0) - drifted_weights.reindex(names, fill_value=0)).abs().sum()
         turnover_log[reb_date] = turnover
         cost = turnover * (transaction_cost_bps / 10_000.0)
-        current_weights = new_weights
         period_end = rebal_dates[i + 1] if i + 1 < len(rebal_dates) else prices.index[-1]
-        period_mask = (prices.index > reb_date) & (prices.index <= period_end)
-        period_dates = prices.index[period_mask]
+        period_dates = prices.index[(prices.index > reb_date) & (prices.index <= period_end)]
         if len(period_dates) == 0:
+            drifted_weights = target
             continue
-        held_returns = daily_returns.loc[period_dates, current_weights.index].fillna(0)
-        weighted_returns = held_returns.mul(current_weights, axis=1).sum(axis=1)
-        # apply the rebalance transaction cost as a one-time drag on the first day of the period
-        weighted_returns.iloc[0] -= cost
-        portfolio_daily_returns.loc[period_dates] = weighted_returns
+        # Buy and hold within the period: each name's value compounds on its own,
+        # any uninvested remainder (caps that cannot all bind) sits in cash at 0%.
+        growth = (1 + daily_returns.loc[period_dates, target.index]).cumprod()
+        values = growth.mul(target, axis=1)
+        cash = 1.0 - target.sum()
+        wealth = values.sum(axis=1) + cash
+        period_returns = wealth.pct_change()
+        period_returns.iloc[0] = wealth.iloc[0] - 1.0
+        period_returns.iloc[0] -= cost  # rebalance cost, paid once at the start of the period
+        portfolio_daily_returns.loc[period_dates] = period_returns
+        drifted_weights = values.iloc[-1] / wealth.iloc[-1]
     equity_curve = (1 + portfolio_daily_returns).cumprod()
     # Measure from the first rebalance that actually held positions; the
     # score warm-up before it is cash at 0% and would dilute every metric.
