@@ -91,7 +91,7 @@ def seed() -> None:
             ))
 
             price_series = generate_price_history(
-                ticker, price, one_year_return_pct, volatility_pct
+                ticker, price, one_year_return_pct, volatility_pct, beta=fund["beta"]
             )
             db.bulk_save_objects([
                 PricePoint(company_id=company.id, date=dt.date(), close=float(close))
