@@ -20,6 +20,41 @@ def test_company_lookup_is_case_insensitive_and_404s(client):
     assert client.get("/api/companies/NOPE").status_code == 404
 
 
+def test_company_returns_v02_esg_fields(client):
+    esg = client.get("/api/companies/XOM").json()["esg_score"]
+
+    assert 0 <= esg["composite_score"] <= 100
+    assert esg["weighted_pillar_score"] > 0
+    assert esg["confidence"] in {"high", "medium", "low"}
+    assert esg["trend_label"] in {"improving", "stable", "worsening"}
+    assert esg["trend"] == pytest.approx(esg["composite_score"] - esg["prior_composite_score"], abs=0.11)
+    assert esg["controversy_events"]
+    first = esg["controversy_events"][0]
+    assert {"category", "occurred_on", "title", "age_months", "decay_factor", "penalty_points"} <= first.keys()
+    assert all(e["title"].startswith("Mock:") for e in esg["controversy_events"])
+    # XOM's mock data includes a category 5 event inside the last year.
+    assert esg["grade"] == "BB"
+    assert esg["grade_cap_reason"]
+    assert client.get("/api/companies/V").json()["esg_score"]["grade_cap_reason"] is None
+
+
+def test_stale_schema_is_detected(client):
+    from sqlalchemy import text
+
+    from app.database import engine
+    from app.main import ensure_seeded, schema_is_stale
+
+    assert not schema_is_stale()
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE controversy_events"))
+    assert schema_is_stale()
+
+    ensure_seeded()
+
+    assert not schema_is_stale()
+    assert len(client.get("/api/companies").json()) == 30
+
+
 def test_quant_factors_rank_whole_universe(client):
     rows = client.get("/api/quant/factors").json()
 
