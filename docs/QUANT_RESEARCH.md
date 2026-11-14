@@ -159,8 +159,8 @@ error cannot dominate a factor. `scoring.cross_sectional_zscore()` does this
 after **winsorizing** each metric (clipping the extreme 1% tails), which
 still matters because the sector adjustment below uses raw means.
 The z-scores for each factor family's individual metrics are then combined
-using the weights in `config.py` (e.g., within Value: 35% earnings yield,
-35% FCF yield, 15% book-to-price, 15% EV/EBITDA), producing one score per
+using the weights in `config.py` (e.g., within Value: 30% earnings yield,
+30% FCF yield, 20% book-to-price, 20% E/P), producing one score per
 factor family per stock. Those five family scores are then combined using
 the top-level `FACTOR_WEIGHTS` into one **composite score**, and the
 universe is ranked by it (`scoring.compute_composite_score()`). Each family
