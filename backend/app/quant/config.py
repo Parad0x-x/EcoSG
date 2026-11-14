@@ -60,10 +60,14 @@ LOW_VOL_WEIGHTS = {
 # ---------------------------------------------------------------------------
 # Sector neutralization
 # ---------------------------------------------------------------------------
-# When True, factor z-scores are computed *within sector* so the model isn't
-# just a disguised sector bet (e.g. always long Energy when it's cheap on
-# book value, always short Tech). See RESEARCH.md for why this matters.
+# When True, each metric is measured relative to its sector before ranking, so
+# the model isn't just a disguised sector bet (e.g. always long Energy when it's
+# cheap on book value). With ~3 names per sector a raw sector mean is mostly
+# noise, so the sector mean is shrunk toward the universe mean with
+# SECTOR_SHRINKAGE_K pseudo-observations: k=0 is full sector neutralization,
+# a large k approaches no sector adjustment. See docs/QUANT_RESEARCH.md.
 SECTOR_NEUTRAL_SCORING = True
+SECTOR_SHRINKAGE_K = 3.0
 
 # Winsorize each raw metric at these percentiles before z-scoring, to stop a
 # single data error or extreme outlier from dominating the score.
@@ -99,6 +103,7 @@ class RunConfig:
     top_n: int = TOP_N
     buffer_multiplier: float = BUFFER_MULTIPLIER
     sector_neutral: bool = SECTOR_NEUTRAL_SCORING
+    sector_shrinkage_k: float = SECTOR_SHRINKAGE_K
     position_sizing_method: str = POSITION_SIZING_METHOD
     max_position_weight: float = MAX_POSITION_WEIGHT
     min_position_weight: float = MIN_POSITION_WEIGHT
