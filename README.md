@@ -22,7 +22,7 @@ is the whole point — it's the "gap" the platform is named after, made visible 
   Financials), a **controversy penalty**, a **letter grade** (AAA…CCC, the convention used by
   major ESG ratings providers), and a **sector-relative percentile**.
 - **Quant factor model** (`backend/app/quant/`) — a hedge-fund-style multi-factor stock model
-  ported in from a standalone project: cross-sectional, sector-neutral z-scoring of Value,
+  ported in from a standalone project: cross-sectional, rank-based, sector-adjusted z-scoring of Value,
   Quality, Momentum, Growth, and Low-Volatility metrics into one composite score and rank,
   inverse-volatility-sized top-N portfolio construction with buffer-band turnover control, and a
   walk-forward backtest engine (Sharpe, Sortino, CAGR, max drawdown, Calmar, beta vs. benchmark).
@@ -64,7 +64,7 @@ ecosg/
 │   │   │   ├── config.py        # Factor weights, sector-neutral scoring, portfolio caps
 │   │   │   ├── data.py          # Reads ECOSG's DB (replaces the original's yfinance layer)
 │   │   │   ├── factors.py       # Value/Quality/Momentum/Growth/Low-Vol metric computation
-│   │   │   ├── scoring.py       # Winsorize -> z-score -> composite score + rank
+│   │   │   ├── scoring.py       # Winsorize -> shrunk sector mean -> rank z-score -> composite + rank
 │   │   │   ├── portfolio.py     # Position sizing, caps, buffer-band BUY/SELL/HOLD signals
 │   │   │   ├── backtest.py      # Walk-forward backtest engine + performance metrics
 │   │   │   └── service.py       # Query + scoring orchestration for the quant routes
@@ -162,17 +162,48 @@ open-source design system (neutral grays, white cards, Geist type), reimplemente
 in `src/index.css`; no Maybe code is included. Geist loads from Google Fonts, with a system-font
 fallback when offline. It follows your OS light or dark setting.
 
-## ESG scoring methodology (v0.1)
+## ESG scoring methodology (v0.2)
 
 ```
-composite = sector_weight_E * environmental_score
-          + sector_weight_S * social_score
-          + sector_weight_G * governance_score
-          - controversy_penalty
+weighted          = w_E * environmental + w_S * social + w_G * governance
+industry_adjusted = clip(100 * (weighted - sector_lo) / (sector_hi - sector_lo), 0, 100)
+composite_score   = max(0, industry_adjusted - controversy_penalty)
 ```
 
-Sector weights and the full ruleset live in `backend/app/scoring.py`, along with the letter
-grade bands. This is the single place that encodes "what does a good ESG score mean" — swapping
+1. **Materiality weights with a governance floor.** Each sector weights E, S and G by financial
+   materiality, following the SASB Materiality Finder and Khan, Serafeim and Yoon (2016),
+   [Corporate Sustainability: First Evidence on Materiality](https://papers.ssrn.com/abstract=2575912).
+   Governance never gets less than 33%, following the
+   [MSCI ESG Ratings Methodology (Nov 2020)](https://fintech.mcu.edu.tw/wp-content/uploads/sites/42/2023/02/MSCI-ESG-Ratings-Methodology-Exec-Summary-Nov-2020.pdf).
+   The exact per-sector numbers are ecosg's own judgement built on these principles, not a
+   vendor's table. The code refuses to load if any sector's weights do not sum to 1 or put
+   governance under 0.33.
+2. **Industry adjustment and grades.** The weighted score is rescaled against a fixed
+   benchmark range per sector. MSCI uses live peer ranges; with only three peers per sector in
+   the demo that would be noise, so the ranges are fixed config describing a plausible wider
+   universe (a design choice). Grades use MSCI's seven equal bands: AAA at 85.7 and up, AA 71.4,
+   A 57.1, BBB 42.9, BB 28.6, B 14.3, CCC below.
+3. **Controversies are dated events** (table `controversy_events`) with a Sustainalytics-style
+   category from 1 to 5. Penalty = `min(30, sum(points[category] * 0.5 ** (age_months / 12)))`
+   with points `{1: 1, 2: 3, 3: 6, 4: 10, 5: 15}`; an event drops out after 36 months (MSCI's
+   three-year window; RepRisk decays over two years). The 12-month half-life is a design choice.
+   All seeded events are illustrative mock placeholders, never real allegations.
+4. **Grade caps** (design choice): a category 5 event younger than 12 months caps the grade at
+   BB; a governance score below 30 caps it at BBB. The API returns `grade_before_cap` and
+   `grade_cap_reason`.
+5. **Confidence and trend are separate signals**, never blended into the score. Confidence
+   (high, medium, low) comes from mock data coverage and rater spread, because raters disagree
+   a lot ([Berg, Kolbel and Rigobon, Aggregate Confusion](https://papers.ssrn.com/abstract=3438533);
+   [Avramov et al. 2022](https://doi.org/10.1016/j.jfineco.2021.09.009)). Trend reruns the same
+   algorithm on last year's pillars and events, labelled improving or worsening at 3 points or
+   more ([Nagy, Kassam and Lee, Can ESG Add Alpha?](https://www.msci.com/research-and-insights/blog-post/can-esg-add-alpha)).
+   The thresholds are design choices.
+
+Scores are computed on read for today's date, so controversy penalties decay as time passes.
+On startup the backend reseeds the database if its schema is out of date (for example an
+`ecosg.db` created before v0.2), since it only holds mock data.
+
+Sector weights, benchmark ranges and the full ruleset live in `backend/app/scoring.py`. This is the single place that encodes "what does a good ESG score mean"; swapping
 in real vendor data later (a licensed ESG data feed + a market data API) should only require
 changing `data_seed.py` / the DB contents, not the scoring logic itself.
 
@@ -186,9 +217,13 @@ composite = factor_weight_value   * cross_sectional_zscore(value_metrics)
           + factor_weight_low_vol * cross_sectional_zscore(low_vol_metrics)
 ```
 
-Each z-score is computed **sector-neutrally** (within-sector, not across the whole universe) so
-the score reflects stock-picking, not an accidental sector bet — see `docs/QUANT_RESEARCH.md`
-for why that matters and the academic grounding for each factor. Unlike the ESG score (0-100),
+Each z-score is **rank-based** and **partially sector-adjusted**: each metric is measured
+against its sector mean shrunk toward the universe mean (three names per sector is too few for
+a full within-sector z-score), then ranked across the whole universe, and each family score is
+re-standardized before weighting. See `docs/QUANT_RESEARCH.md` for why that matters and the
+academic grounding for each factor. The backtest also reports an equal-weight benchmark and the
+information coefficient (IC) with its t-stat; on about 11 months of mock prices it is a
+mechanics demo, not evidence. Unlike the ESG score (0-100),
 the quant composite is a cross-sectional z-score (roughly -2.5 to +2.5, centered on 0) — it's
 inherently relative to the current universe, so the app surfaces rank and percentile alongside
 it rather than a fixed grade scale.
@@ -216,7 +251,7 @@ notification hook.
   the same two data-layer seams (`data_seed.py`+`quant_seed.py` on the ESG/mock side,
   `quant/data.py` on the quant side)
 - User accounts + saved/tracked portfolios
-- Historical ESG score trends, not just a point-in-time snapshot
+- Full historical ESG score series (today there is only a one-year trend from mock prior-year pillars)
 - A real risk-adjusted "ESG alpha" model in place of the illustrative return–ESG gap metric, and
   a proper combined ESG+quant screening/optimization view (currently deliberately kept as two
   separate, comparable scores rather than one blended number)
