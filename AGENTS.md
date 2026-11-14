@@ -100,19 +100,26 @@ frontend/tests/      node --test suites for insights.ts and importHoldings.ts
 
 ## Current build state (2026-11-13)
 
-- ✅ ESG scoring, quant factor model, 9 API endpoints, 5 frontend pages
-- ✅ pytest suite (34 tests) and CI for backend tests + frontend lint/tests/build
+- ✅ ESG scoring v0.2: SASB-materiality weights with a 33% governance floor, industry-adjusted
+  score, MSCI seven-band grades, dated controversy events with 12-month decay and grade caps,
+  confidence and one-year trend as separate signals (sources in README)
+- ✅ Quant v0.2: rank z-scores with shrunk sector means, GP/A, cash-based quality, low beta,
+  residual momentum, idiosyncratic vol; backtest uses portfolio.py sizing with drifting weights,
+  reports IC and an equal-weight benchmark; mock prices share a market factor, no baked-in momentum
+- ✅ 9 API endpoints, 5 frontend pages; startup reseeds a DB with an outdated schema
+- ✅ pytest suite (104 tests) and CI for backend tests + frontend lint/tests/build
 - ✅ UI redesigned as a guided explainer: Maybe-style neutral design in plain CSS, Geist font,
   light/dark, a takeaway sentence per page, glossary tooltips, "What does this mean?" panels, Learn page
 - ✅ Portfolio import from a broker CSV or pasted positions; parsed in the browser, only tickers and
   weights reach the API; uncovered tickers are flagged and excluded
-- ✅ 12 frontend logic tests on Node's built-in runner (no new dependency)
+- ✅ 14 frontend logic tests on Node's built-in runner (no new dependency)
 - ✅ Backtest metrics start at the first invested rebalance; benchmark shares the price dates
 - ✅ Quant results cached per process (seed() clears it); prices load in one query
 - ✅ Routes code-split; Recharts only loads on Dashboard and Quant Factors
 - ⚠️ All data is mock. The return-ESG "gap" metric is a naive placeholder, not an alpha model.
 - ⚠️ No frontend component or e2e tests; only pure-logic modules are tested.
-- ⚠️ Backtest benchmark curve includes its first-day return (~1.7%) that the strategy curve does not.
+- ⚠️ Backtest is a mechanics demo: ~11 monthly rebalances, IC -0.10 (t -1.57), unproven.
+- ⚠️ Mock controversy events use real company names (titles start with "Mock:").
 - ⚠️ Import covers only the 30 mock companies; real brokerage linking (e.g. SnapTrade) is paid, ask first.
 
 ## Environment
@@ -124,7 +131,7 @@ frontend/tests/      node --test suites for insights.ts and importHoldings.ts
 ## What's next, ranked
 
 1. Component/e2e tests for Lookup and Portfolio flows (Vitest/Playwright would be new deps, ask first)
-2. Fix the benchmark first-day return mismatch in the backtest
+2. Neutral wording for mock controversy events, or fictional company names
 3. Historical ESG score trends instead of a point-in-time snapshot
 4. Replace the naive return-ESG gap with a risk-adjusted comparison
 5. Real data behind the existing seams, then deployment (ask first)
