@@ -82,13 +82,15 @@ ecosg/
     │   ├── components.tsx    # Badges, bars, glossary <Term> tooltips, "What does this mean?" panels
     │   ├── glossary.ts       # Plain-English definitions used by tooltips and the Learn page
     │   ├── insights.ts       # One-sentence takeaways that open each page
+    │   ├── importHoldings.ts # Parses broker CSV exports / pasted positions into weights (in-browser)
+    │   ├── ImportPanel.tsx   # "Import from your broker" drop zone, paste box and review table
     │   └── pages/
     │       ├── Dashboard.tsx     # Explore: ESG vs. 1-year return across all companies
     │       ├── Lookup.tsx        # Company: ESG and quant side by side, each explained
     │       ├── QuantFactors.tsx  # Factors: the five factors, ESG-vs-quant scatter, picks, backtest
-    │       ├── Portfolio.tsx     # Portfolio: both lenses for a mix of holdings
+    │       ├── Portfolio.tsx     # Portfolio: import or type holdings, see both lenses for the mix
     │       └── Learn.tsx         # Short lessons and the full glossary
-    ├── tests/                # node --test suite for insights.ts
+    ├── tests/                # node --test suites for insights.ts and importHoldings.ts
     └── package.json
 ```
 
