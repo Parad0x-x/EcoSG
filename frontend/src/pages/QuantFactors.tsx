@@ -114,6 +114,7 @@ export default function QuantFactors() {
         date: p.date,
         Strategy: Number((p.portfolio * 100 - 100).toFixed(2)),
         Benchmark: Number((p.benchmark * 100 - 100).toFixed(2)),
+        "Equal weight": Number((p.equal_weight * 100 - 100).toFixed(2)),
       })),
     [backtest]
   );
@@ -256,7 +257,7 @@ export default function QuantFactors() {
             <div className="stat">
               <div className="stat-label"><Term id="cagr">Yearly return (CAGR)</Term></div>
               <div className="stat-value">{fmtPct(m.cagr)}</div>
-              <div className="stat-note">Market: {fmtPct(m.benchmark_cagr)}</div>
+              <div className="stat-note">Market: {fmtPct(m.benchmark_cagr)} · Equal weight: {fmtPct(m.equal_weight_cagr)}</div>
             </div>
             <div className="stat">
               <div className="stat-label"><Term id="sharpe">Sharpe ratio</Term></div>
@@ -273,6 +274,13 @@ export default function QuantFactors() {
               <div className="stat-value">{fmtPct(m.excess_cagr_vs_benchmark)}</div>
               <div className="stat-note">per year</div>
             </div>
+            <div className="stat">
+              <div className="stat-label">Information coefficient (IC)</div>
+              <div className="stat-value">{fmtNum(m.mean_ic)}</div>
+              <div className="stat-note">
+                t-stat {fmtNum(m.ic_t_stat)} over {m.ic_periods} months. Unproven if t is below 3.
+              </div>
+            </div>
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={equityData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
@@ -285,17 +293,26 @@ export default function QuantFactors() {
               />
               <Line type="monotone" dataKey="Strategy" stroke="var(--quant)" dot={false} strokeWidth={2} />
               <Line type="monotone" dataKey="Benchmark" stroke={AXIS.stroke} dot={false} strokeWidth={2} strokeDasharray="4 3" />
+              <Line type="monotone" dataKey="Equal weight" stroke="var(--esg)" dot={false} strokeWidth={1.5} strokeDasharray="1 3" />
             </LineChart>
           </ResponsiveContainer>
           <div className="legend">
             <span><i style={{ ["--c" as string]: "var(--quant)" }} />Strategy, cumulative return</span>
             <span><i style={{ ["--c" as string]: AXIS.stroke }} />Market benchmark</span>
+            <span><i style={{ ["--c" as string]: "var(--esg)" }} />Every company, equal weight</span>
           </div>
           <Explain title="Why you should be skeptical of any backtest">
             <p>
               A backtest replays a strategy on old prices. It cannot account for everything that
               changes in real markets, and it is easy to tune a strategy until the past looks great.
               Past results never promise future ones.
+            </p>
+            <p>
+              The information coefficient (IC) checks the ranking itself: each month, does a higher score
+              go with a higher return the next month? 1 is a perfect ranking, 0 is no link. A t-stat
+              below 3 means the result could easily be luck, so treat the signal as unproven.
+              Beating the equal-weight line matters more than beating the market: it shows the model
+              did better than simply owning every company in equal amounts.
             </p>
             <p>{backtest.methodology_note}</p>
           </Explain>
