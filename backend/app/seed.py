@@ -6,10 +6,13 @@ this is mock demo data, not a production migration story.
 """
 from __future__ import annotations
 
-from .data_seed import SEED_COMPANIES
+import datetime
+
+from .data_seed import CONTROVERSY_EVENTS, ESG_CONTEXT, SEED_COMPANIES
 from .database import Base, SessionLocal, engine
-from .models import Company, EsgComponent, FactorFundamentals, FinancialMetric, PricePoint
+from .models import Company, ControversyEvent, EsgComponent, FactorFundamentals, FinancialMetric, PricePoint
 from .quant import service as quant_service
+from .scoring import DAYS_PER_MONTH
 from .quant_seed import generate_fundamentals, generate_price_history
 
 
@@ -17,14 +20,18 @@ def seed() -> None:
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
+    # Mock event ages are relative to the seed date, so they stay sensible.
+    reference_date = datetime.date.today()
+
     db = SessionLocal()
     try:
         for row in SEED_COMPANIES:
             (
                 ticker, name, sector, price, market_cap_b,
                 one_year_return_pct, three_year_annualized_return_pct, volatility_pct,
-                environmental_score, social_score, governance_score, controversy_severity,
+                environmental_score, social_score, governance_score,
             ) = row
+            coverage, rater_spread, env_prev, social_prev, gov_prev = ESG_CONTEXT[ticker]
 
             company = Company(ticker=ticker, name=name, sector=sector)
             db.add(company)
@@ -43,8 +50,21 @@ def seed() -> None:
                 environmental_score=environmental_score,
                 social_score=social_score,
                 governance_score=governance_score,
-                controversy_severity=controversy_severity,
+                data_coverage_pct=coverage,
+                rater_spread=rater_spread,
+                env_prev=env_prev,
+                social_prev=social_prev,
+                gov_prev=gov_prev,
             ))
+            db.add_all([
+                ControversyEvent(
+                    company_id=company.id,
+                    category=category,
+                    occurred_on=reference_date - datetime.timedelta(days=round(months_ago * DAYS_PER_MONTH)),
+                    title=title,
+                )
+                for category, months_ago, title in CONTROVERSY_EVENTS[ticker]
+            ])
 
             fund = generate_fundamentals(ticker, sector, price, market_cap_b)
             db.add(FactorFundamentals(
