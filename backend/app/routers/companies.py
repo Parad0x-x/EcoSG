@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import service
 from ..database import get_db
-from ..models import Company, CompanyOut, CompanySummaryOut, EsgScoreOut
+from ..models import Company, CompanyOut, CompanySummaryOut
 
 router = APIRouter(prefix="/api", tags=["companies"])
 
@@ -43,9 +45,9 @@ def get_company(ticker: str, db: Session = Depends(get_db)):
     if not company:
         raise HTTPException(status_code=404, detail=f"No company found for ticker '{ticker.upper()}'")
 
-    breakdowns = service.score_all(db)
+    as_of = datetime.date.today()
+    breakdowns = service.score_all(db, as_of)
     percentiles = service.sector_percentiles(db, breakdowns)
-    bd = breakdowns[company.id]
 
     return CompanyOut(
         ticker=company.ticker,
@@ -53,13 +55,5 @@ def get_company(ticker: str, db: Session = Depends(get_db)):
         sector=company.sector,
         financials=company.financials,
         esg_raw=company.esg,
-        esg_score=EsgScoreOut(
-            composite_score=bd.composite_score,
-            grade=bd.grade,
-            sector_percentile=percentiles[company.id],
-            environmental_score=bd.environmental_score,
-            social_score=bd.social_score,
-            governance_score=bd.governance_score,
-            controversy_penalty=bd.controversy_penalty,
-        ),
+        esg_score=service.esg_score_out(company, breakdowns[company.id], percentiles[company.id], as_of),
     )
