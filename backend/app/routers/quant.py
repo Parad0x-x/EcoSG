@@ -24,10 +24,12 @@ _RAW_METRIC_LABELS = {
     "book_to_price": "book_to_price",
     "roic": "roic_proxy",
     "roe": "roe",
-    "gross_margin": "gross_margin",
+    "gpoa": "gross_profit_to_assets",
+    "cfoa": "fcf_to_assets",
     "mom_12_1": "momentum_12_1",
     "revenue_growth_yoy": "revenue_growth_yoy",
     "realized_vol_inv": "realized_vol_inv",
+    "low_beta": "low_beta",
 }
 
 

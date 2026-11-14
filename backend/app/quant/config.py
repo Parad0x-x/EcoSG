@@ -27,18 +27,19 @@ FACTOR_WEIGHTS: Dict[str, float] = {
 
 # Individual metric weights *within* each factor family (must each sum to 1.0)
 VALUE_WEIGHTS = {
-    "earnings_yield": 0.35,     # EBIT / EV  (Greenblatt-style)
-    "fcf_yield": 0.35,          # Free Cash Flow / Enterprise Value
-    "book_to_price": 0.15,
-    "ev_to_ebitda_inv": 0.15,   # inverted so higher = cheaper = better
+    "earnings_yield": 0.30,     # EBIT proxy / EV  (Greenblatt-style)
+    "fcf_yield": 0.30,          # Free Cash Flow / Enterprise Value
+    "book_to_price": 0.20,
+    "earnings_to_price": 0.20,  # 1 / trailing P/E
 }
 
 QUALITY_WEIGHTS = {
-    "roic": 0.30,
-    "roe": 0.20,
-    "gross_margin": 0.20,
-    "debt_to_equity_inv": 0.15,     # inverted so lower leverage = better
-    "earnings_stability": 0.15,     # inverse coefficient of variation of EPS
+    "roic": 0.20,               # ROA proxy
+    "roe": 0.15,
+    "gpoa": 0.20,               # gross profits / assets (Novy-Marx 2013)
+    "cfoa": 0.15,               # free cash flow / assets (QMJ)
+    "accruals": 0.10,           # -(net income - FCF) / assets (QMJ)
+    "debt_to_equity_inv": 0.20, # inverted so lower leverage = better
 }
 
 MOMENTUM_WEIGHTS = {
@@ -47,14 +48,13 @@ MOMENTUM_WEIGHTS = {
 }
 
 GROWTH_WEIGHTS = {
-    "revenue_growth_yoy": 0.40,
-    "revenue_growth_3y_cagr": 0.30,
-    "eps_growth_yoy": 0.30,
+    "revenue_growth_yoy": 0.50,
+    "eps_growth_yoy": 0.50,
 }
 
 LOW_VOL_WEIGHTS = {
     "realized_vol_inv": 0.60,   # inverted 60-day realized volatility
-    "beta_closeness": 0.40,     # penalizes |beta - 1|
+    "low_beta": 0.40,           # -beta shrunk toward 1 (Betting Against Beta)
 }
 
 # ---------------------------------------------------------------------------

@@ -12,36 +12,55 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+BETA_SHRINK_WEIGHT = 0.5
+
+# ---------------------------------------------------------------------------
+# Shared accounting proxies
+# ---------------------------------------------------------------------------
+def _net_income(df: pd.DataFrame) -> pd.Series:
+    return df["profitMargins"] * df["totalRevenue"]
+
+def _total_assets(df: pd.DataFrame) -> pd.Series:
+    """Assets backed out of ROA = NI / assets. NaN unless both are usable and
+    the implied assets are positive (a loss with negative ROA still works)."""
+    roa = df["returnOnAssets"].replace(0, np.nan)
+    assets = _net_income(df) / roa
+    return assets.where(assets > 0)
+
 # ---------------------------------------------------------------------------
 # Value
 # ---------------------------------------------------------------------------
 def compute_value_factors(fund: pd.DataFrame) -> pd.DataFrame:
     df = fund.copy()
-    ev = df["enterpriseValue"].replace(0, np.nan)
-    ebit_proxy = df["ebitda"]  # yfinance doesn't expose EBIT directly; EBITDA is the closest free proxy
-    df["earnings_yield"] = ebit_proxy / ev
+    ev = df["enterpriseValue"].where(df["enterpriseValue"] > 0)
+    # EBIT proxy = operating margin x revenue. EBITDA/EV and the old inverted
+    # EV/EBITDA were the same number twice; EBIT also charges depreciation.
+    df["earnings_yield"] = df["operatingMargins"] * df["totalRevenue"] / ev
     df["fcf_yield"] = df["freeCashflow"] / ev
     df["book_to_price"] = 1.0 / df["priceToBook"].replace(0, np.nan)
-    ev_to_ebitda = ev / ebit_proxy.replace(0, np.nan)
-    df["ev_to_ebitda_inv"] = 1.0 / ev_to_ebitda  # invert: higher = cheaper = better
-    return df[["ticker", "earnings_yield", "fcf_yield", "book_to_price", "ev_to_ebitda_inv"]]
+    # Equity-level earnings yield (E/P), a distinct view from the EV-level one.
+    df["earnings_to_price"] = 1.0 / df["trailingPE"].replace(0, np.nan)
+    return df[["ticker", "earnings_yield", "fcf_yield", "book_to_price", "earnings_to_price"]]
 
 # ---------------------------------------------------------------------------
-# Quality
+# Quality (profitability, cash-based earnings quality, safety; see
+# Asness, Frazzini, Pedersen "Quality Minus Junk" and Novy-Marx 2013)
 # ---------------------------------------------------------------------------
 def compute_quality_factors(fund: pd.DataFrame) -> pd.DataFrame:
     df = fund.copy()
-    df["roic"] = df["returnOnAssets"]  # yfinance has no direct ROIC; ROA is the closest free proxy
-                                        # (swap in true ROIC = EBIT*(1-tax) / invested capital if you
-                                        #  have balance-sheet line items -- see README for the formula)
+    df["roic"] = df["returnOnAssets"]  # no balance-sheet line items for true ROIC; ROA is the proxy
     df["roe"] = df["returnOnEquity"]
-    df["gross_margin"] = df["grossMargins"]
-    dte = df["debtToEquity"].replace(0, np.nan)
-    df["debt_to_equity_inv"] = 1.0 / (1.0 + dte.abs())  # bounded, higher = less levered = better
-    # Earnings stability isn't in a single snapshot field; approximate with
-    # margin stability if multi-period data isn't available.
-    df["earnings_stability"] = df["profitMargins"].clip(lower=-1, upper=1)
-    return df[["ticker", "roic", "roe", "gross_margin", "debt_to_equity_inv", "earnings_stability"]]
+    assets = _total_assets(df)
+    net_income = _net_income(df)
+    # Gross profits to assets (Novy-Marx 2013): the cleanest profitability measure.
+    df["gpoa"] = df["grossMargins"] * df["totalRevenue"] / assets
+    # Cash flow over assets and (negative) accruals, both from QMJ: profits
+    # backed by cash beat profits that are mostly accounting accruals.
+    df["cfoa"] = df["freeCashflow"] / assets
+    df["accruals"] = -(net_income - df["freeCashflow"]) / assets
+    # Zero debt is the best case, so it must stay 0 (score 1.0), not become missing.
+    df["debt_to_equity_inv"] = 1.0 / (1.0 + df["debtToEquity"].abs())
+    return df[["ticker", "roic", "roe", "gpoa", "cfoa", "accruals", "debt_to_equity_inv"]]
 
 # ---------------------------------------------------------------------------
 # Momentum (computed from price history -- no look-ahead issue, unlike fundamentals)
@@ -80,12 +99,9 @@ def compute_growth_factors(fund: pd.DataFrame) -> pd.DataFrame:
     df = fund.copy()
     df["revenue_growth_yoy"] = df["revenueGrowth"]
     df["eps_growth_yoy"] = df["earningsGrowth"]
-    # yfinance's snapshot .info has no 3yr CAGR field; without multi-year
-    # financial statements pulled separately it collapses to the YoY figure.
-    # See README for how to extend this with df["revenue"] time series from
-    # ticker.financials for a true 3-year CAGR.
-    df["revenue_growth_3y_cagr"] = df["revenueGrowth"]
-    return df[["ticker", "revenue_growth_yoy", "revenue_growth_3y_cagr", "eps_growth_yoy"]]
+    # No multi-year revenue history in the snapshot, so there is no 3-year CAGR
+    # metric; it used to be a copy of the YoY figure, which double-counted it.
+    return df[["ticker", "revenue_growth_yoy", "eps_growth_yoy"]]
 
 # ---------------------------------------------------------------------------
 # Low volatility
@@ -96,11 +112,14 @@ def compute_low_vol_factors(prices: pd.DataFrame, fund: pd.DataFrame,
     realized_vol = returns.tail(window).std() * np.sqrt(252)
     realized_vol_inv = 1.0 / realized_vol.replace(0, np.nan)
     beta = fund.set_index("ticker")["beta"].reindex(prices.columns)
-    beta_closeness = -1.0 * (beta - 1.0).abs()  # closer to market beta=1 scores higher (less idiosyncratic risk)
+    # Betting Against Beta (Frazzini, Pedersen): low-beta stocks earn more per
+    # unit of risk. Shrink toward 1 (Vasicek-style, weight 0.5) since a single
+    # beta estimate is noisy; higher score = lower beta.
+    low_beta = -(BETA_SHRINK_WEIGHT * beta + (1.0 - BETA_SHRINK_WEIGHT) * 1.0)
     out = pd.DataFrame({
         "ticker": prices.columns,
         "realized_vol_inv": realized_vol_inv.values,
-        "beta_closeness": beta_closeness.values,
+        "low_beta": low_beta.values,
     })
     return out
 

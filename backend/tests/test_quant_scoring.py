@@ -42,10 +42,10 @@ def test_composite_ranks_best_name_first():
     rng = np.random.default_rng(0)
     n = 9
     df = pd.DataFrame({"ticker": [f"T{i}" for i in range(n)], "sector": ["S"] * n})
-    for col in ["earnings_yield", "fcf_yield", "book_to_price", "ev_to_ebitda_inv", "roic", "roe",
-                "gross_margin", "debt_to_equity_inv", "earnings_stability", "mom_12_1", "mom_6_1",
-                "revenue_growth_yoy", "revenue_growth_3y_cagr", "eps_growth_yoy",
-                "realized_vol_inv", "beta_closeness"]:
+    from app.quant import config
+    metrics = [m for w in (config.VALUE_WEIGHTS, config.QUALITY_WEIGHTS, config.MOMENTUM_WEIGHTS,
+                           config.GROWTH_WEIGHTS, config.LOW_VOL_WEIGHTS) for m in w]
+    for col in metrics:
         df[col] = rng.normal(size=n)
     df.loc[4, df.columns[2:]] = 10.0  # dominant on every metric
 
