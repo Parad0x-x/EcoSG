@@ -8,9 +8,10 @@ side by side: the same kind of factor-driven "which stocks would a
 return-focused quant fund pick" signal a hedge fund screens on, next to
 ECOSG's own ESG accountability score for the same company.
 
-factors.py, scoring.py, portfolio.py, and backtest.py are the original
-project's modules, effectively unchanged (only the sibling-module imports
-were made package-relative). config.py keeps the same knobs with
+factors.py, scoring.py, portfolio.py, and backtest.py started as the original
+project's modules; v0.2 fixed several metric and backtest defects and adopted
+better-evidenced methods (see the "v0.2 changes and sources" section of
+docs/QUANT_RESEARCH.md). config.py keeps the same knobs with
 portfolio-construction defaults rescaled for ECOSG's ~25-name mock universe
 (see its docstring). data.py is new: the original project's data.py talked
 to yfinance directly; this one is a drop-in replacement that reads the same
