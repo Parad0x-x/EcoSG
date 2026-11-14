@@ -28,6 +28,17 @@ def test_equity_curve_starts_when_the_strategy_first_holds_something():
     assert (res.equity_curve.diff().iloc[1:22] != 0).all()
 
 
+def test_benchmark_starts_at_one_on_the_strategy_start_date():
+    prices = _synthetic_prices()
+    bench = prices.mean(axis=1)
+
+    res = backtest.run_backtest(prices, bench, RunConfig())
+
+    assert res.benchmark_curve.index[0] == res.equity_curve.index[0]
+    assert res.benchmark_curve.iloc[0] == pytest.approx(1.0)
+    assert res.equity_curve.iloc[0] == pytest.approx(1.0)
+
+
 def test_performance_metrics_on_known_returns():
     returns = pd.Series([0.01, -0.005] * 126)
 

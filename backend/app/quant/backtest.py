@@ -121,6 +121,9 @@ def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
     if first_invested is not None:
         equity_curve = equity_curve[equity_curve.index >= first_invested]
     bench_returns = benchmark_prices.pct_change().fillna(0).reindex(equity_curve.index).fillna(0)
+    # The strategy earns nothing on its first day (it buys at that close), so the benchmark must not either.
+    if len(bench_returns):
+        bench_returns.iloc[0] = 0.0
     benchmark_curve = (1 + bench_returns).cumprod()
     metrics = compute_performance_metrics(portfolio_daily_returns.loc[equity_curve.index], bench_returns)
     return BacktestResult(
