@@ -63,3 +63,34 @@ def test_low_beta_scores_higher_than_high_beta():
 
     assert lv.loc["A", "low_beta"] > lv.loc["B", "low_beta"] > lv.loc["C", "low_beta"]
     assert lv.loc["A", "low_beta"] == pytest.approx(-0.8)  # shrunk halfway to 1
+
+
+def _market_universe(n_days=300):
+    rng = np.random.default_rng(7)
+    m = rng.normal(0.002, 0.01, n_days)  # rising market
+    rets = {
+        "HIBETA": 2.0 * m,                                  # pure market exposure, no alpha
+        "ALPHA": 0.5 * m + 0.001,                           # steady stock-specific drift
+        "NOISY": m + rng.normal(0, 0.03, n_days),           # large idiosyncratic risk
+    }
+    for i in range(5):
+        rets[f"F{i}"] = m + rng.normal(0, 0.005, n_days)
+    rets = pd.DataFrame(rets)
+    rets.iloc[0] = 0.0
+    return 100 * (1 + rets).cumprod()
+
+
+def test_residual_momentum_rewards_stock_specific_trend_not_market_beta():
+    mom = factors.compute_momentum_factors(_market_universe()).set_index("ticker")
+
+    assert mom.loc["HIBETA", "mom_12_1"] > mom.loc["ALPHA", "mom_12_1"]
+    assert mom.loc["ALPHA", "resid_mom"] > mom.loc["HIBETA", "resid_mom"]
+
+
+def test_idiosyncratic_vol_separates_market_risk_from_stock_risk():
+    prices = _market_universe()
+    fund = pd.DataFrame({"ticker": prices.columns, "beta": 1.0})
+
+    lv = factors.compute_low_vol_factors(prices, fund).set_index("ticker")
+
+    assert lv.loc["HIBETA", "idio_vol_inv"] > lv.loc["NOISY", "idio_vol_inv"]

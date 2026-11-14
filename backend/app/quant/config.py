@@ -43,8 +43,8 @@ QUALITY_WEIGHTS = {
 }
 
 MOMENTUM_WEIGHTS = {
-    "mom_12_1": 0.60,   # 12-month return skipping the most recent month (academic standard)
-    "mom_6_1": 0.40,    # 6-month return skipping the most recent month
+    "mom_12_1": 0.50,   # 12-month return skipping the most recent month (academic standard)
+    "resid_mom": 0.50,  # residual momentum vs the universe (Blitz, Huij, Martens 2011)
 }
 
 GROWTH_WEIGHTS = {
@@ -53,8 +53,9 @@ GROWTH_WEIGHTS = {
 }
 
 LOW_VOL_WEIGHTS = {
-    "realized_vol_inv": 0.60,   # inverted 60-day realized volatility
-    "low_beta": 0.40,           # -beta shrunk toward 1 (Betting Against Beta)
+    "realized_vol_inv": 0.40,   # inverted 60-day realized volatility
+    "idio_vol_inv": 0.30,       # inverted 60-day idiosyncratic volatility (Ang et al 2006)
+    "low_beta": 0.30,           # -beta shrunk toward 1 (Betting Against Beta)
 }
 
 # ---------------------------------------------------------------------------

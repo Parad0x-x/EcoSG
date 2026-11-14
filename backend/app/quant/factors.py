@@ -65,32 +65,49 @@ def compute_quality_factors(fund: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Momentum (computed from price history -- no look-ahead issue, unlike fundamentals)
 # ---------------------------------------------------------------------------
+def _market_regression(returns: pd.DataFrame):
+    """Per-stock OLS of daily returns on the equal-weighted universe return.
+    Returns (alpha, beta, market) with alpha/beta indexed by ticker."""
+    market = returns.mean(axis=1)
+    m_dev = market - market.mean()
+    beta = returns.sub(returns.mean()).mul(m_dev, axis=0).sum() / (m_dev ** 2).sum()
+    alpha = returns.mean() - beta * market.mean()
+    return alpha, beta, market
+
 def compute_momentum_factors(prices: pd.DataFrame, as_of: pd.Timestamp = None) -> pd.DataFrame:
     """
-    Classic academic momentum: total return over a lookback window, SKIPPING
-    the most recent month (the '12-1' convention). Skipping the last month
-    avoids short-term reversal, which is a well-documented *opposite* effect
-    to momentum over 1-month horizons (Jegadeesh & Titman, 1993).
+    Two momentum measures, both skipping the most recent month to avoid
+    short-term reversal (Jegadeesh & Titman, 1993):
+    - mom_12_1: classic total return from t-12m to t-1m.
+    - resid_mom: residual momentum (Blitz, Huij, Martens 2011). Regress each
+      stock's daily returns over t-252..t-21 on the equal-weighted universe
+      return; score = sum(residuals) / std(residuals). Stripping the market
+      part makes it less exposed to momentum crashes when the market turns.
+      shortcut: BHM estimate the regression on 36 months; with ~2 years of
+      history the beta comes from the 12-1 window itself and the residual
+      keeps the stock's own drift (r - beta * m), since an in-window
+      intercept would force the residual sum to zero. Use a 36-month
+      estimation window once longer history exists.
+    The old 6-1 measure is dropped: it is a sub-window of 12-1 and mostly
+    duplicates it, while residual momentum adds a different view.
     """
     prices = prices.sort_index()
     if as_of is None:
         as_of = prices.index[-1]
-    def total_return(window_trading_days: int, skip_trading_days: int) -> pd.Series:
-        end_idx = prices.index.get_indexer([as_of], method="ffill")[0] - skip_trading_days
-        start_idx = end_idx - window_trading_days
-        if start_idx < 0 or end_idx < 0:
-            return pd.Series(np.nan, index=prices.columns)
-        p_end = prices.iloc[end_idx]
-        p_start = prices.iloc[start_idx]
-        return (p_end / p_start) - 1.0
-    mom_12_1 = total_return(window_trading_days=252, skip_trading_days=21)
-    mom_6_1 = total_return(window_trading_days=126, skip_trading_days=21)
-    out = pd.DataFrame({
+    end_pos = prices.index.get_indexer([as_of], method="ffill")[0]
+    mom_12_1 = pd.Series(np.nan, index=prices.columns)
+    resid_mom = pd.Series(np.nan, index=prices.columns)
+    if end_pos - 21 - 252 >= 0:
+        mom_12_1 = prices.iloc[end_pos - 21] / prices.iloc[end_pos - 21 - 252] - 1.0
+        window = prices.pct_change().iloc[end_pos - 251:end_pos - 20]
+        _alpha, beta, market = _market_regression(window)
+        resid = window - np.outer(market, beta)
+        resid_mom = resid.sum() / resid.std().replace(0, np.nan)
+    return pd.DataFrame({
         "ticker": prices.columns,
         "mom_12_1": mom_12_1.values,
-        "mom_6_1": mom_6_1.values,
+        "resid_mom": resid_mom.values,
     })
-    return out
 
 # ---------------------------------------------------------------------------
 # Growth
@@ -108,9 +125,14 @@ def compute_growth_factors(fund: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 def compute_low_vol_factors(prices: pd.DataFrame, fund: pd.DataFrame,
                              window: int = 60) -> pd.DataFrame:
-    returns = prices.pct_change()
-    realized_vol = returns.tail(window).std() * np.sqrt(252)
+    returns = prices.pct_change().tail(window)
+    realized_vol = returns.std() * np.sqrt(252)
     realized_vol_inv = 1.0 / realized_vol.replace(0, np.nan)
+    # Idiosyncratic volatility (Ang, Hodrick, Xing, Zhang 2006): the part of
+    # volatility the market does not explain. High idio vol predicts low returns.
+    alpha, beta, market = _market_regression(returns)
+    resid = returns - alpha - np.outer(market, beta)
+    idio_vol_inv = 1.0 / (resid.std() * np.sqrt(252)).replace(0, np.nan)
     beta = fund.set_index("ticker")["beta"].reindex(prices.columns)
     # Betting Against Beta (Frazzini, Pedersen): low-beta stocks earn more per
     # unit of risk. Shrink toward 1 (Vasicek-style, weight 0.5) since a single
@@ -119,6 +141,7 @@ def compute_low_vol_factors(prices: pd.DataFrame, fund: pd.DataFrame,
     out = pd.DataFrame({
         "ticker": prices.columns,
         "realized_vol_inv": realized_vol_inv.values,
+        "idio_vol_inv": idio_vol_inv.values,
         "low_beta": low_beta.values,
     })
     return out

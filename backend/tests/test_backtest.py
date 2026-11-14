@@ -98,3 +98,28 @@ def test_backtest_sizes_with_the_live_portfolio_functions(monkeypatch):
     backtest.run_backtest(prices, prices.mean(axis=1), RunConfig(), sectors=sectors)
 
     assert calls
+
+
+def test_price_only_score_ignores_prices_after_the_rebalance_date():
+    prices = _synthetic_prices()
+    as_of = prices.index[300]
+    tampered = prices.copy()
+    tampered.iloc[301:] *= np.linspace(0.2, 5.0, prices.shape[1])  # rewrite the future
+
+    clean = backtest.default_price_only_score(as_of, prices.loc[:as_of])
+    after = backtest.default_price_only_score(as_of, tampered.loc[:as_of])
+
+    pd.testing.assert_series_equal(clean, after)
+    assert clean.notna().all() and len(clean) == prices.shape[1]
+
+
+def test_backtest_path_before_a_date_does_not_depend_on_later_prices():
+    prices = _synthetic_prices()
+    cut = prices.index[400]
+    tampered = prices.copy()
+    tampered.loc[tampered.index > cut] *= np.linspace(0.2, 5.0, prices.shape[1])
+
+    a = backtest.run_backtest(prices, prices.mean(axis=1), RunConfig())
+    b = backtest.run_backtest(tampered, tampered.mean(axis=1), RunConfig())
+
+    pd.testing.assert_series_equal(a.equity_curve.loc[:cut], b.equity_curve.loc[:cut])

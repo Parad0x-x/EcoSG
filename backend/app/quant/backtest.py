@@ -25,7 +25,8 @@ import numpy as np
 import pandas as pd
 from . import config as cfg_module
 from . import portfolio
-from .scoring import cross_sectional_zscore
+from . import factors
+from .scoring import rank_zscore, score_factor_family
 
 # ---------------------------------------------------------------------------
 # Default, look-ahead-safe score function: momentum + low-vol, price-only
@@ -34,23 +35,28 @@ def default_price_only_score(as_of: pd.Timestamp, price_history: pd.DataFrame) -
     """
     price_history: all daily prices up to (and including) `as_of` -- nothing
     later is passed in, so there is no way for this function to see the future.
-    Returns a composite score per ticker (12-1 momentum + 60d inverse vol).
+    Scores the two price-only families the same way the live model does
+    (momentum: 12-1 + residual momentum; low vol: realized + idiosyncratic
+    vol; beta is left out because it comes from fundamentals), re-standardizes
+    each family, and combines them in their FACTOR_WEIGHTS ratio.
     """
     prices = price_history.sort_index()
     if len(prices) < 280:
         return pd.Series(dtype=float)
-    p_end = prices.iloc[-22]     # skip most recent month (12-1 momentum convention)
-    p_12m = prices.iloc[-274] if len(prices) >= 274 else prices.iloc[0]
-    mom_12_1 = (p_end / p_12m) - 1.0
-    returns = prices.pct_change()
-    vol_60d = returns.tail(60).std() * np.sqrt(252)
-    low_vol_score = -1.0 * vol_60d  # lower vol = higher score
-    df = pd.DataFrame({"mom_12_1": mom_12_1, "low_vol": low_vol_score})
-    df["ticker"] = df.index
-    z_mom = cross_sectional_zscore(df, "mom_12_1", sector_neutral=False)
-    z_vol = cross_sectional_zscore(df, "low_vol", sector_neutral=False)
-    composite = 0.7 * z_mom.fillna(0) + 0.3 * z_vol.fillna(0)
-    return composite.sort_values(ascending=False)
+    no_fund = pd.DataFrame({"ticker": prices.columns, "beta": np.nan})
+    df = factors.compute_momentum_factors(prices).merge(
+        factors.compute_low_vol_factors(prices, no_fund), on="ticker").set_index("ticker")
+    family_metrics = {"momentum": cfg_module.MOMENTUM_WEIGHTS, "low_vol": cfg_module.LOW_VOL_WEIGHTS}
+    composite = pd.Series(0.0, index=df.index)
+    total_weight = 0.0
+    for family, metric_weights in family_metrics.items():
+        family_score = score_factor_family(df, metric_weights, sector_neutral=False,
+                                           winsor_lower=cfg_module.WINSORIZE_LOWER_PCTL,
+                                           winsor_upper=cfg_module.WINSORIZE_UPPER_PCTL)
+        weight = cfg_module.FACTOR_WEIGHTS[family]
+        composite += weight * rank_zscore(family_score).fillna(0)
+        total_weight += weight
+    return (composite / total_weight).sort_values(ascending=False)
 
 @dataclass
 class BacktestResult:
