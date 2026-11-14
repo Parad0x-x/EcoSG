@@ -257,7 +257,7 @@ export default function QuantFactors() {
             <div className="stat">
               <div className="stat-label"><Term id="cagr">Yearly return (CAGR)</Term></div>
               <div className="stat-value">{fmtPct(m.cagr)}</div>
-              <div className="stat-note">Market: {fmtPct(m.benchmark_cagr)} · Equal weight: {fmtPct(m.equal_weight_cagr)}</div>
+              <div className="stat-note">Market: {fmtPct(m.benchmark_cagr)} · <Term id="equalWeight">Equal weight</Term>: {fmtPct(m.equal_weight_cagr)}</div>
             </div>
             <div className="stat">
               <div className="stat-label"><Term id="sharpe">Sharpe ratio</Term></div>
@@ -275,7 +275,7 @@ export default function QuantFactors() {
               <div className="stat-note">per year</div>
             </div>
             <div className="stat">
-              <div className="stat-label">Information coefficient (IC)</div>
+              <div className="stat-label"><Term id="ic">Information coefficient (IC)</Term></div>
               <div className="stat-value">{fmtNum(m.mean_ic)}</div>
               <div className="stat-note">
                 t-stat {fmtNum(m.ic_t_stat)} over {m.ic_periods} months. Unproven if t is below 3.
@@ -293,13 +293,13 @@ export default function QuantFactors() {
               />
               <Line type="monotone" dataKey="Strategy" stroke="var(--quant)" dot={false} strokeWidth={2} />
               <Line type="monotone" dataKey="Benchmark" stroke={AXIS.stroke} dot={false} strokeWidth={2} strokeDasharray="4 3" />
-              <Line type="monotone" dataKey="Equal weight" stroke="var(--esg)" dot={false} strokeWidth={1.5} strokeDasharray="1 3" />
+              <Line type="monotone" dataKey="Equal weight" stroke="var(--text-secondary)" dot={false} strokeWidth={1.5} strokeDasharray="1 3" />
             </LineChart>
           </ResponsiveContainer>
           <div className="legend">
             <span><i style={{ ["--c" as string]: "var(--quant)" }} />Strategy, cumulative return</span>
             <span><i style={{ ["--c" as string]: AXIS.stroke }} />Market benchmark</span>
-            <span><i style={{ ["--c" as string]: "var(--esg)" }} />Every company, equal weight</span>
+            <span><i style={{ ["--c" as string]: "var(--text-secondary)" }} />Every company, equal weight</span>
           </div>
           <Explain title="Why you should be skeptical of any backtest">
             <p>

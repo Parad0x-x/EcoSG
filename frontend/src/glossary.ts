@@ -38,7 +38,32 @@ export const GLOSSARY = {
   },
   controversy: {
     term: "Controversy penalty",
-    short: "Points taken off the ESG score for recent scandals, lawsuits or accidents. The worse the controversy, the bigger the deduction, up to 30 points.",
+    short: "Points taken off the ESG score for recent scandals, lawsuits or accidents. Worse and more recent events cost more, up to 30 points in total.",
+    group: "ESG",
+  },
+  controversyCategory: {
+    term: "Controversy category",
+    short: "How serious an event is, from 1 (minor complaint) to 5 (severe harm). A category 5 event in the last year caps the grade at BB.",
+    group: "ESG",
+  },
+  decay: {
+    term: "Decay",
+    short: "Old controversies count for less. An event's penalty halves every 12 months and disappears after 3 years.",
+    group: "ESG",
+  },
+  industryAdjusted: {
+    term: "Industry-adjusted score",
+    short: "The weighted pillar score placed on a 0 to 100 scale against what is typical for the industry, so an oil company is judged against oil companies.",
+    group: "ESG",
+  },
+  confidence: {
+    term: "Confidence",
+    short: "How much to trust the score. It drops when the company reports little data or when rating agencies disagree a lot about it. It never changes the score itself.",
+    group: "ESG",
+  },
+  esgTrend: {
+    term: "ESG trend",
+    short: "The change in the score over the last year, worked out the same way. A rise of 3 points or more is improving, a fall of 3 or more is worsening.",
     group: "ESG",
   },
   sectorPercentile: {
@@ -135,6 +160,16 @@ export const GLOSSARY = {
     term: "Weight",
     short: "How much of the portfolio a holding takes up. 25% weight means a quarter of your money is in it.",
     group: "Portfolio",
+  },
+  ic: {
+    term: "Information coefficient (IC)",
+    short: "How well the ranking predicted the next month: the correlation between each stock's score and its next-month return. Above 0 helps; a t-stat below 3 means it could be luck.",
+    group: "Returns and risk",
+  },
+  equalWeight: {
+    term: "Equal-weight benchmark",
+    short: "Owning every covered company in equal amounts. A simple baseline that clever strategies often fail to beat.",
+    group: "Returns and risk",
   },
   invVol: {
     term: "Inverse-volatility sizing",
