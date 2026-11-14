@@ -11,10 +11,23 @@ from .database import Base, engine
 from .routers import companies, portfolio, quant
 from .seed import seed
 
-def ensure_seeded() -> None:
-    Base.metadata.create_all(bind=engine)
+def schema_is_stale() -> bool:
+    """True when the DB is missing a table or column the models expect,
+    e.g. an ecosg.db created before a schema change. The DB holds only
+    mock data, so the fix is a full reseed rather than a migration."""
     inspector = inspect(engine)
-    if "companies" not in inspector.get_table_names():
+    existing = set(inspector.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing:
+            return True
+        columns = {c["name"] for c in inspector.get_columns(table.name)}
+        if not set(table.columns.keys()) <= columns:
+            return True
+    return False
+
+
+def ensure_seeded() -> None:
+    if schema_is_stale():
         seed()
         return
     with engine.connect() as conn:
