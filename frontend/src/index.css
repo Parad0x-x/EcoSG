@@ -367,6 +367,42 @@ button:disabled { opacity: 0.6; cursor: default; }
 .remove-btn { background: none; border: none; color: var(--text-subdued); font-size: 1rem; cursor: pointer; padding: 0.25rem 0.4rem; border-radius: 6px; }
 .remove-btn:hover { color: var(--negative); background: var(--negative-tint); }
 
+/* ---------- Import ---------- */
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1.75rem 1rem;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: center;
+  cursor: pointer;
+}
+.dropzone:hover, .dropzone.dragging { border-color: var(--quant); background: var(--quant-tint); }
+.dropzone:focus-within { box-shadow: 0 0 0 4px var(--ring); }
+.link-like { text-decoration: underline; color: var(--text); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+textarea {
+  display: block;
+  width: 100%;
+  margin: 0.4rem 0 0.75rem;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--container);
+  color: var(--text);
+  resize: vertical;
+}
+textarea:focus { outline: none; box-shadow: 0 0 0 4px var(--ring); }
+.status { font-size: 0.75rem; font-weight: 500; padding: 0.1rem 0.5rem; border-radius: 6px; white-space: nowrap; }
+.status.ok { background: var(--esg-tint); color: var(--positive); }
+.status.no { background: var(--surface-inset); color: var(--text-secondary); }
+
 /* ---------- Learn page ---------- */
 .lesson-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
 .lesson-grid .card { margin: 0; }

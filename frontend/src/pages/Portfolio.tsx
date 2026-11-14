@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError, screenPortfolio, type PortfolioResult } from "../api";
 import { Explain, FactorBar, GradeBadge, ReturnValue, Term } from "../components";
+import ImportPanel from "../ImportPanel";
 import { esgPhrase } from "../insights";
 
 interface Row {
@@ -42,12 +43,22 @@ export default function Portfolio() {
     setRows((prev) => prev.filter((_, idx) => idx !== i));
   }
 
-  async function onSubmit(e: React.FormEvent) {
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    check(rows);
+  }
+
+  function onImport(imported: { ticker: string; weight: number }[]) {
+    const next = imported.map((h) => ({ ticker: h.ticker, weight: String(h.weight) }));
+    setRows(next);
+    check(next);
+  }
+
+  async function check(current: Row[]) {
     setError(null);
     setResult(null);
 
-    const holdings = rows
+    const holdings = current
       .filter((r) => r.ticker.trim() && r.weight.trim())
       .map((r) => ({ ticker: r.ticker.trim().toUpperCase(), weight_pct: Number(r.weight) }));
 
@@ -83,12 +94,17 @@ export default function Portfolio() {
         <p className="eyebrow">Portfolio</p>
         <h1>Check a portfolio</h1>
         <p className="subtitle">
-          List what you own and roughly how much of each. We'll show how the whole mix scores on
-          both lenses. <Term id="weight">Weights</Term> don't need to add up to 100; we scale them for you.
+          Import your holdings from your broker, or list them by hand, and see how the whole mix
+          scores on both lenses. <Term id="weight">Weights</Term> don't need to add up to 100; we scale them for you.
         </p>
       </div>
 
+      <ImportPanel onImport={onImport} />
+
       <section className="card">
+        <div className="card-head">
+          <h2>Or enter holdings by hand</h2>
+        </div>
         <form onSubmit={onSubmit}>
           {rows.map((row, i) => (
             <div className="holding-row" key={i}>
