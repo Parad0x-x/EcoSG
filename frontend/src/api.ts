@@ -21,17 +21,41 @@ export interface EsgComponentRaw {
   environmental_score: number;
   social_score: number;
   governance_score: number;
-  controversy_severity: number;
+  data_coverage_pct: number;
+  rater_spread: number;
+  env_prev: number;
+  social_prev: number;
+  gov_prev: number;
+}
+
+export interface ControversyEvent {
+  category: number;
+  occurred_on: string;
+  title: string;
+  age_months: number;
+  decay_factor: number;
+  penalty_points: number;
 }
 
 export interface EsgScore {
   composite_score: number;
   grade: string;
+  grade_before_cap: string;
+  grade_cap_reason: string | null;
   sector_percentile: number;
+  weighted_pillar_score: number;
+  industry_adjusted_score: number;
+  benchmark_low: number;
+  benchmark_high: number;
   environmental_score: number;
   social_score: number;
   governance_score: number;
   controversy_penalty: number;
+  controversy_events: ControversyEvent[];
+  confidence: "high" | "medium" | "low";
+  prior_composite_score: number;
+  trend: number;
+  trend_label: "improving" | "stable" | "worsening";
 }
 
 export interface CompanyDetail {
@@ -116,12 +140,17 @@ export interface BacktestMetrics {
   excess_cagr_vs_benchmark: number | null;
   daily_win_rate: number | null;
   total_return: number | null;
+  equal_weight_cagr: number | null;
+  mean_ic: number | null;
+  ic_t_stat: number | null;
+  ic_periods: number;
 }
 
 export interface EquityCurvePoint {
   date: string;
   portfolio: number;
   benchmark: number;
+  equal_weight: number;
 }
 
 export interface BacktestSummary {

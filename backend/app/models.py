@@ -40,6 +40,9 @@ class Company(Base):
     esg: Mapped["EsgComponent"] = relationship(
         back_populates="company", uselist=False, cascade="all, delete-orphan"
     )
+    controversies: Mapped[list["ControversyEvent"]] = relationship(
+        back_populates="company", cascade="all, delete-orphan"
+    )
     factor_fundamentals: Mapped["FactorFundamentals"] = relationship(
         back_populates="company", uselist=False, cascade="all, delete-orphan"
     )
@@ -77,12 +80,31 @@ class EsgComponent(Base):
     social_score: Mapped[float] = mapped_column(Float)
     governance_score: Mapped[float] = mapped_column(Float)
 
-    # Controversy flag / severity (0 = none, higher = worse) lets the
-    # scoring framework apply a penalty independent of the pillar scores,
-    # mirroring how real ESG providers treat controversies.
-    controversy_severity: Mapped[float] = mapped_column(Float, default=0.0)
+    # Confidence inputs: share of inputs the company reports, and the
+    # (simulated) standard deviation of pillar scores across raters.
+    data_coverage_pct: Mapped[float] = mapped_column(Float)
+    rater_spread: Mapped[float] = mapped_column(Float)
+
+    # Pillar scores one year earlier, for the trend signal.
+    env_prev: Mapped[float] = mapped_column(Float)
+    social_prev: Mapped[float] = mapped_column(Float)
+    gov_prev: Mapped[float] = mapped_column(Float)
 
     company: Mapped["Company"] = relationship(back_populates="esg")
+
+
+class ControversyEvent(Base):
+    """One dated controversy. The penalty is derived on read (scoring.py),
+    so it decays with time without any data migration."""
+    __tablename__ = "controversy_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), index=True)
+    category: Mapped[int] = mapped_column(Integer)  # 1 low .. 5 severe
+    occurred_on: Mapped[datetime.date] = mapped_column(Date)
+    title: Mapped[str] = mapped_column(String(160))
+
+    company: Mapped["Company"] = relationship(back_populates="controversies")
 
 
 class FactorFundamentals(Base):
@@ -151,7 +173,22 @@ class EsgComponentOut(BaseModel):
     environmental_score: float
     social_score: float
     governance_score: float
-    controversy_severity: float
+    data_coverage_pct: float
+    rater_spread: float
+    env_prev: float
+    social_prev: float
+    gov_prev: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ControversyEventOut(BaseModel):
+    category: int = Field(..., description="1 (low) to 5 (severe)")
+    occurred_on: datetime.date
+    title: str
+    age_months: float
+    decay_factor: float = Field(..., description="Share of the category's points still counted, 0-1")
+    penalty_points: float
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -159,13 +196,24 @@ class EsgComponentOut(BaseModel):
 class EsgScoreOut(BaseModel):
     """Derived output of the scoring framework -- see scoring.py."""
 
-    composite_score: float = Field(..., description="0-100 weighted composite")
-    grade: str = Field(..., description="Letter grade bucket, e.g. 'A', 'BBB'")
+    composite_score: float = Field(..., description="Final 0-100 score: industry-adjusted minus controversy penalty")
+    grade: str = Field(..., description="Letter grade after any cap, e.g. 'A', 'BBB'")
+    grade_before_cap: str
+    grade_cap_reason: str | None = Field(None, description="Why the grade was capped, or null")
     sector_percentile: float = Field(..., description="Percentile rank within sector, 0-100")
+    weighted_pillar_score: float = Field(..., description="Materiality-weighted pillar score before industry adjustment")
+    industry_adjusted_score: float = Field(..., description="Weighted score rescaled to the sector benchmark range, 0-100")
+    benchmark_low: float
+    benchmark_high: float
     environmental_score: float
     social_score: float
     governance_score: float
     controversy_penalty: float
+    controversy_events: list[ControversyEventOut]
+    confidence: str = Field(..., description="high, medium or low; never blended into the score")
+    prior_composite_score: float = Field(..., description="Same algorithm run one year earlier")
+    trend: float = Field(..., description="composite_score minus prior_composite_score")
+    trend_label: str = Field(..., description="improving, stable or worsening")
 
 
 class CompanyOut(BaseModel):
@@ -277,12 +325,17 @@ class BacktestMetrics(BaseModel):
     excess_cagr_vs_benchmark: float | None
     daily_win_rate: float | None
     total_return: float | None
+    equal_weight_cagr: float | None = Field(None, description="CAGR of holding every covered stock in equal weights.")
+    mean_ic: float | None = Field(None, description="Mean Spearman IC of scores vs next-period returns.")
+    ic_t_stat: float | None = Field(None, description="t-stat of the mean IC; below 3 means unproven.")
+    ic_periods: int = Field(0, description="Number of rebalance periods behind the IC.")
 
 
 class EquityCurvePoint(BaseModel):
     date: str
     portfolio: float
     benchmark: float
+    equal_weight: float = 1.0
 
 
 class BacktestSummary(BaseModel):
