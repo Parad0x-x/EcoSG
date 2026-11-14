@@ -10,7 +10,7 @@ const LESSONS = [
   },
   {
     title: "Why industries are scored differently",
-    body: "Emissions matter more for an oil company than for a bank, so each sector weights E, S and G differently before they are combined.",
+    body: "Emissions matter more for an oil company than for a bank, so each sector weights E, S and G differently, and each company is then compared with what is typical for its own industry.",
     to: "/lookup/XOM",
     cta: "Compare an energy company",
   },
