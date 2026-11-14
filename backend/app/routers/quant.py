@@ -115,9 +115,12 @@ def get_backtest(db: Session = Depends(get_db)):
         equity_curve=result["equity_curve"],
         methodology_note=(
             "Walk-forward monthly-rebalanced backtest using a look-ahead-safe, price-only "
-            "momentum + low-volatility score (not the full fundamentals model) -- the same "
-            "honest limitation the original factor model documents: fundamentals snapshots "
-            "have no point-in-time history, so using them here would leak future information "
-            "into the past. Synthetic price data; not a real historical simulation."
+            "momentum + low-volatility score (not the full fundamentals model): fundamentals "
+            "snapshots have no point-in-time history, so using them here would leak future "
+            "information into the past. Positions are sized and capped by the same code as the "
+            "live picks, drift with prices between rebalances, and pay 10 bps on turnover. "
+            "The information coefficient (IC) is the rank correlation between each month's "
+            "scores and the next month's returns; with about a dozen months, a t-stat below 3 "
+            "means the signal is unproven. Synthetic mock prices: this demonstrates the "
+            "mechanics, it is not evidence the strategy works."
         ),
-    )

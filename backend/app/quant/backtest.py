@@ -64,6 +64,8 @@ class BacktestResult:
     benchmark_curve: pd.Series
     turnover_by_period: pd.Series
     metrics: dict
+    equal_weight_curve: pd.Series   # 1/N of the whole universe, rebalanced daily
+    ic_by_period: pd.Series         # Spearman IC of each rebalance's scores vs next-period return
 
 def _rebalance_dates(index: pd.DatetimeIndex, freq: str) -> pd.DatetimeIndex:
     s = pd.Series(index=index, data=1)
@@ -107,6 +109,7 @@ def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
     daily_returns = prices.pct_change().fillna(0)
     portfolio_daily_returns = pd.Series(0.0, index=prices.index)
     turnover_log = {}
+    ic_log = {}
     drifted_weights = pd.Series(dtype=float)  # holdings as they stand just before a rebalance
     first_invested = None
     for i, reb_date in enumerate(rebal_dates):
@@ -130,6 +133,10 @@ def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
         if len(period_dates) == 0:
             drifted_weights = target
             continue
+        # Evaluation only (never fed back into a decision): did this date's
+        # ranking line up with what happened over the next period?
+        forward = prices.loc[period_dates[-1], scores.index] / prices.loc[reb_date, scores.index] - 1.0
+        ic_log[reb_date] = spearman_ic(scores, forward)
         # Buy and hold within the period: each name's value compounds on its own,
         # any uninvested remainder (caps that cannot all bind) sits in cash at 0%.
         growth = (1 + daily_returns.loc[period_dates, target.index]).cumprod()
@@ -151,13 +158,47 @@ def run_backtest(prices: pd.DataFrame, benchmark_prices: pd.Series, cfg,
     if len(bench_returns):
         bench_returns.iloc[0] = 0.0
     benchmark_curve = (1 + bench_returns).cumprod()
+    # 1/N benchmark (DeMiguel, Garlappi, Uppal 2009): a factor model has to beat
+    # simply holding everything in equal weights, not just the index.
+    ew_returns = daily_returns.mean(axis=1).reindex(equity_curve.index).fillna(0)
+    if len(ew_returns):
+        ew_returns.iloc[0] = 0.0
     metrics = compute_performance_metrics(portfolio_daily_returns.loc[equity_curve.index], bench_returns)
+    ic_by_period = pd.Series(ic_log, dtype=float).dropna()
+    metrics.update(_annualized_growth(ew_returns, "Equal-Weight CAGR"))
+    metrics.update(ic_summary(ic_by_period))
     return BacktestResult(
         equity_curve=equity_curve,
         benchmark_curve=benchmark_curve,
         turnover_by_period=pd.Series(turnover_log),
         metrics=metrics,
+        equal_weight_curve=(1 + ew_returns).cumprod(),
+        ic_by_period=ic_by_period,
     )
+
+def spearman_ic(scores: pd.Series, forward_returns: pd.Series) -> float:
+    """Rank correlation of scores vs realized forward returns (rank, then Pearson)."""
+    both = pd.concat([scores, forward_returns], axis=1).dropna()
+    if len(both) < 3:
+        return np.nan
+    ranks = both.rank()
+    return ranks.iloc[:, 0].corr(ranks.iloc[:, 1])
+
+def ic_summary(ics: pd.Series) -> dict:
+    """
+    Mean IC, its t-stat (mean / (std / sqrt(n))) and the number of periods.
+    Harvey, Liu, Zhu (2016) argue a new factor needs t > 3 to count as
+    evidence; with ~a dozen monthly periods this cannot be proven either way.
+    """
+    n = len(ics)
+    mean = ics.mean() if n else np.nan
+    sd = ics.std() if n > 1 else np.nan
+    t_stat = mean / (sd / np.sqrt(n)) if n > 1 and sd and sd > 0 else np.nan
+    return {"Mean IC": mean, "IC t-stat": t_stat, "IC Periods": n}
+
+def _annualized_growth(returns: pd.Series, label: str) -> dict:
+    years = len(returns) / 252.0
+    return {label: (1 + returns).prod() ** (1 / years) - 1 if years > 0 else np.nan}
 
 def compute_performance_metrics(returns: pd.Series, benchmark_returns: pd.Series,
                                  rf_annual: float = 0.0) -> dict:

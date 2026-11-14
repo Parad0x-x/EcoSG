@@ -27,3 +27,13 @@ def test_cached_scores_match_a_fresh_computation(client):
 
     assert fresh.equals(again)
     assert (fresh["composite_score"] != 0.0).any()
+
+
+def test_backtest_endpoint_exposes_ic_and_equal_weight(client):
+    body = client.get("/api/quant/backtest").json()
+
+    m = body["metrics"]
+    assert {"mean_ic", "ic_t_stat", "ic_periods", "equal_weight_cagr"} <= set(m)
+    assert m["ic_periods"] > 0
+    first = body["equity_curve"][0]
+    assert first["portfolio"] == first["benchmark"] == first["equal_weight"] == 1.0

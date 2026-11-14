@@ -116,19 +116,25 @@ def _run_universe_backtest(db: Session) -> dict:
         "Excess CAGR vs Benchmark": "excess_cagr_vs_benchmark",
         "Daily Win Rate": "daily_win_rate",
         "Total Return": "total_return",
+        "Equal-Weight CAGR": "equal_weight_cagr",
+        "Mean IC": "mean_ic",
+        "IC t-stat": "ic_t_stat",
     }
     metrics = {v: _clean(result.metrics.get(k)) for k, v in metric_key_map.items()}
+    metrics["ic_periods"] = int(result.metrics.get("IC Periods", 0))
 
     equity_curve = [
         {
             "date": dt.strftime("%Y-%m-%d"),
             "portfolio": _clean(p) or 0.0,
             "benchmark": _clean(b) or 0.0,
+            "equal_weight": _clean(e) or 0.0,
         }
-        for dt, p, b in zip(
+        for dt, p, b, e in zip(
             result.equity_curve.index,
             result.equity_curve.values,
             result.benchmark_curve.reindex(result.equity_curve.index).values,
+            result.equal_weight_curve.reindex(result.equity_curve.index).values,
         )
     ]
 

@@ -123,3 +123,29 @@ def test_backtest_path_before_a_date_does_not_depend_on_later_prices():
     b = backtest.run_backtest(tampered, tampered.mean(axis=1), RunConfig())
 
     pd.testing.assert_series_equal(a.equity_curve.loc[:cut], b.equity_curve.loc[:cut])
+
+
+def test_backtest_reports_ic_and_an_equal_weight_benchmark():
+    prices = _synthetic_prices()
+
+    res = backtest.run_backtest(prices, prices.mean(axis=1), RunConfig())
+
+    assert {"Mean IC", "IC t-stat", "IC Periods", "Equal-Weight CAGR"} <= set(res.metrics)
+    assert res.metrics["IC Periods"] == len(res.ic_by_period) > 3
+    assert res.ic_by_period.between(-1, 1).all()
+    assert res.equal_weight_curve.index.equals(res.equity_curve.index)
+    assert res.equal_weight_curve.iloc[0] == pytest.approx(1.0)
+
+
+def test_ic_summary_t_stat():
+    s = backtest.ic_summary(pd.Series([0.1, 0.2, 0.3]))
+
+    assert s["Mean IC"] == pytest.approx(0.2)
+    assert s["IC t-stat"] == pytest.approx(0.2 / (0.1 / np.sqrt(3)))
+    assert s["IC Periods"] == 3
+
+
+def test_spearman_ic_is_one_for_a_perfect_ranking():
+    scores = pd.Series({"A": 3.0, "B": 2.0, "C": 1.0})
+
+    assert backtest.spearman_ic(scores, pd.Series({"A": 0.5, "B": 0.1, "C": -0.2})) == pytest.approx(1.0)
