@@ -32,6 +32,20 @@ export function lensGap(esgScore: number, quantPercentile: number): { points: nu
   return { points, text: `The return signal is ahead of accountability by ${-points} points.` };
 }
 
+// Matches the backend's trend label, which uses the same 3-point threshold.
+export function trendText(change: number, prior: number): string {
+  const from = `from ${prior.toFixed(0)} a year ago`;
+  if (change >= 3) return `Improving: up ${change.toFixed(1)} ${from}.`;
+  if (change <= -3) return `Worsening: down ${(-change).toFixed(1)} ${from}.`;
+  return `Stable: ${change >= 0 ? "up" : "down"} ${Math.abs(change).toFixed(1)} ${from}.`;
+}
+
+export function ageText(months: number): string {
+  if (months < 1) return "this month";
+  if (months < 24) return `${Math.round(months)} month${Math.round(months) === 1 ? "" : "s"} ago`;
+  return `${(months / 12).toFixed(1)} years ago`;
+}
+
 export function pillarSummary(pillars: Record<string, number>): string {
   const sorted = Object.entries(pillars).sort((a, b) => b[1] - a[1]);
   const [best, worst] = [sorted[0], sorted[sorted.length - 1]];

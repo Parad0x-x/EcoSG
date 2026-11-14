@@ -402,6 +402,13 @@ textarea:focus { outline: none; box-shadow: 0 0 0 4px var(--ring); }
 .status { font-size: 0.75rem; font-weight: 500; padding: 0.1rem 0.5rem; border-radius: 6px; white-space: nowrap; }
 .status.ok { background: var(--esg-tint); color: var(--positive); }
 .status.no { background: var(--surface-inset); color: var(--text-secondary); }
+.status.warn { background: var(--warning-tint); color: var(--warning); }
+
+/* ---------- ESG detail (Lookup) ---------- */
+.signal-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-top: 0.75rem; font-size: 0.875rem; }
+.score-steps { margin: 1rem 0; padding-left: 1.25rem; font-size: 0.9rem; color: var(--text-secondary); }
+.score-steps li { margin-bottom: 0.35rem; }
+.score-steps strong { color: var(--text); font-variant-numeric: tabular-nums; }
 
 /* ---------- Learn page ---------- */
 .lesson-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 2rem; }

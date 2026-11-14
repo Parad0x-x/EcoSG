@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError, fetchCompany, fetchQuantCompany, type CompanyDetail, type QuantCompanyDetail } from "../api";
 import { Explain, FactorBar, GradeBadge, PillarBar, ReturnValue, Term } from "../components";
-import { companyTakeaway, factorSummary, lensGap, pillarSummary } from "../insights";
+import { ageText, companyTakeaway, factorSummary, lensGap, pillarSummary, trendText } from "../insights";
 
 interface LookupResult {
   ticker: string;
@@ -12,6 +12,10 @@ interface LookupResult {
 }
 
 const QUICK_PICKS = ["AAPL", "MSFT", "XOM", "NEE", "V", "PG"];
+
+const CONFIDENCE_CLASS = { high: "ok", medium: "no", low: "warn" } as const;
+const TREND_CLASS = { improving: "positive", stable: "muted", worsening: "negative" } as const;
+const TREND_ARROW = { improving: "↑", stable: "→", worsening: "↓" } as const;
 
 export default function Lookup() {
   const ticker = useParams().ticker?.trim().toUpperCase();
@@ -136,17 +140,39 @@ export default function Lookup() {
           </div>
           <div className="meter"><span style={{ width: `${esg.composite_score}%` }} /></div>
           <div className="meter-scale"><span>0 weak</span><span>100 strong</span></div>
+          <div className="signal-row">
+            <span className={`status ${CONFIDENCE_CLASS[esg.confidence]}`}>
+              <Term id="confidence">{esg.confidence} confidence</Term>
+            </span>
+            <span className={TREND_CLASS[esg.trend_label]}>
+              <span aria-hidden="true">{TREND_ARROW[esg.trend_label]} </span>
+              <Term id="esgTrend">{trendText(esg.trend, esg.prior_composite_score)}</Term>
+            </span>
+          </div>
           <p className="muted" style={{ margin: "0.75rem 0 0" }}>
             <Term id="sectorPercentile">Sector percentile</Term>: better than{" "}
             {esg.sector_percentile.toFixed(0)}% of {company.sector} peers.
           </p>
+          {esg.grade_cap_reason && (
+            <div className="callout warn" style={{ margin: "0.75rem 0 0" }}>
+              <strong>Grade capped at {esg.grade}</strong> (the score alone would earn {esg.grade_before_cap}).{" "}
+              {esg.grade_cap_reason}
+            </div>
+          )}
           <Explain>
             <p>
               This measures how responsibly {company.name} is run, not whether its stock will go up.
               It blends three pillars, environmental, social and governance, weighted for what
-              matters most in {company.sector}, then subtracts points for any recent controversies.
+              matters most in {company.sector}, compares the result with what is typical for the
+              industry, then subtracts points for recent controversies.
             </p>
             <p>The <Term id="grade">grade</Term> is the same score as a letter, AAA best to CCC worst.</p>
+            <p>
+              Confidence and trend sit beside the score and never change it. Confidence is{" "}
+              {esg.confidence} because this company reports about {company.esg_raw.data_coverage_pct.toFixed(0)}% of
+              the data we look for, and rating agencies' scores for it spread by about{" "}
+              {company.esg_raw.rater_spread.toFixed(0)} points.
+            </p>
           </Explain>
         </section>
 
@@ -194,18 +220,66 @@ export default function Lookup() {
           <PillarBar label={<Term id="environmental">Environmental</Term>} value={esg.environmental_score} />
           <PillarBar label={<Term id="social">Social</Term>} value={esg.social_score} />
           <PillarBar label={<Term id="governance">Governance</Term>} value={esg.governance_score} />
-          {esg.controversy_penalty > 0 ? (
-            <div className="callout warn">
-              −{esg.controversy_penalty.toFixed(1)} points <Term id="controversy">controversy penalty</Term>{" "}
-              (severity {company.esg_raw.controversy_severity.toFixed(1)} of 10).
+          <ol className="score-steps">
+            <li>
+              Weighted for {company.sector} (<Term id="sectorWeights">sector weighting</Term>), the pillars
+              come to <strong>{esg.weighted_pillar_score.toFixed(1)}</strong>.
+            </li>
+            <li>
+              {company.sector} companies typically land between {esg.benchmark_low.toFixed(0)} and{" "}
+              {esg.benchmark_high.toFixed(0)}, so that is{" "}
+              <strong>{esg.industry_adjusted_score.toFixed(1)}</strong> out of 100{" "}
+              (<Term id="industryAdjusted">industry-adjusted</Term>).
+            </li>
+            <li>
+              {esg.controversy_penalty > 0 ? (
+                <>
+                  Minus <strong>{esg.controversy_penalty.toFixed(1)}</strong> points{" "}
+                  <Term id="controversy">controversy penalty</Term> gives{" "}
+                  <strong>{esg.composite_score.toFixed(1)}</strong>.
+                </>
+              ) : (
+                <>No controversy penalty, so the score stays at <strong>{esg.composite_score.toFixed(1)}</strong>.</>
+              )}
+            </li>
+          </ol>
+          {esg.controversy_events.length > 0 && (
+            <div className="table-wrap">
+              <table>
+                <caption className="muted small" style={{ textAlign: "left", paddingBottom: "0.4rem" }}>
+                  Illustrative mock events, not real allegations. Each one{" "}
+                  <Term id="decay">fades out after 3 years</Term>
+                </caption>
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th className="num"><Term id="controversyCategory">Category</Term></th>
+                    <th className="num">When</th>
+                    <th className="num">Counts now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {esg.controversy_events.map((e) => (
+                    <tr key={`${e.occurred_on}-${e.title}`}>
+                      <td>{e.title}</td>
+                      <td className="num">{e.category} of 5</td>
+                      <td className="num" style={{ whiteSpace: "nowrap" }}>{ageText(e.age_months)}</td>
+                      <td className="num">
+                        −{e.penalty_points.toFixed(1)}{" "}
+                        <span className="muted small">({Math.round(e.decay_factor * 100)}%)</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ) : (
-            <p className="muted small" style={{ marginBottom: 0 }}>No controversy penalty applied.</p>
           )}
           <Explain title="Why don't the pillars just average out?">
             <p>
-              Each industry weights the pillars differently (<Term id="sectorWeights">sector weighting</Term>).
-              That is why two companies with similar pillar scores can end up with different totals.
+              Each industry weights the pillars by what matters most for it, and governance always
+              counts for at least a third. The result is then compared with the typical range for
+              the industry, so an oil company is judged against oil companies. That is why two
+              companies with similar pillar scores can end up with different totals.
             </p>
           </Explain>
         </section>
