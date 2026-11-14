@@ -92,38 +92,73 @@ def generate_fundamentals(ticker: str, sector: str, price: float, market_cap_b: 
     }
 
 
+# Common market factor shared by every stock path and the benchmark, so beta
+# and excess return measure something real. Aligned by position: index i of
+# any n-day series is trading day i of the stored history.
+_MARKET_SEED = 20260830
+_MARKET_MU_DAILY = 0.00035
+_MARKET_SIGMA_DAILY = 0.011
+_TRADING_DAYS = 252
+_MIN_IDIO_SHARE = 0.5  # idiosyncratic vol is at least half of total vol
+
+
+def market_returns(n_days: int) -> np.ndarray:
+    """Simple daily returns of the synthetic market, deterministic per n_days."""
+    rng = np.random.default_rng(_MARKET_SEED)
+    return rng.normal(_MARKET_MU_DAILY, _MARKET_SIGMA_DAILY, n_days)
+
+
 def generate_price_history(ticker: str, current_price: float, one_year_return_pct: float,
-                            volatility_pct: float, n_days: int = 520) -> pd.Series:
+                            volatility_pct: float, n_days: int = 520,
+                            beta: float | None = None) -> pd.Series:
     """~2 years of synthetic daily closes ending exactly at `current_price`.
 
-    Daily drift/vol are calibrated from the company's stated 1Y return and
-    annualized volatility so the resulting price path -- and the momentum /
-    low-vol factors computed from it -- are roughly consistent with the
-    return and volatility already shown elsewhere in the app, without being
-    a literal re-derivation of the same number (a real 12-1 momentum reading
-    and a trailing-12-month total return are related but not identical
-    measures, same as in live markets).
+    Each day's log return is   drift + beta * market + idiosyncratic noise.
+
+    - Market: the shared factor from `market_returns`, the same series the
+      benchmark is built from, so the stock's realized beta is close to the
+      `beta` passed in (the seeded fundamental beta; 1.0 when not given).
+    - Idiosyncratic vol: chosen so total vol is close to `volatility_pct`,
+      with a floor of half the total so low-vol names keep stock-specific risk.
+    - Drift, older days (all but the final year): an independent random draw
+      per ticker. It is NOT taken from the stated 1Y return, so the past does
+      not encode the future and momentum is not built into the backtest.
+    - Drift, final 252 days: a bridge. The final year's shocks are drawn
+      freely, then shifted by one constant so their sum equals log(1 + 1Y
+      return). The trailing 1Y return computed from these prices therefore
+      equals the stated one shown on the ESG side.
+
+    Remaining caveat: a bridge's expected path is a straight line to its end
+    point, so inside the final year a stock with a high stated 1Y return
+    drifts up steadily. Rebalances late in the backtest, whose lookback
+    overlaps that year, can still see some persistence. It is a mock-data
+    artifact, not evidence for momentum.
     """
     rng = _rng_for(ticker, "prices")
     dates = pd.bdate_range(end=pd.Timestamp.today().normalize(), periods=n_days)
+    beta = 1.0 if beta is None else float(beta)
 
-    annual_return = one_year_return_pct / 100.0
-    mu_daily = np.log1p(annual_return) / 252.0
-    sigma_daily = max(0.001, (volatility_pct / 100.0) / np.sqrt(252.0))
+    market = np.log1p(market_returns(n_days))
+    total_sigma = max(0.001, (volatility_pct / 100.0) / np.sqrt(_TRADING_DAYS))
+    idio_sigma = np.sqrt(max(total_sigma**2 - (beta * _MARKET_SIGMA_DAILY) ** 2,
+                             (_MIN_IDIO_SHARE * total_sigma) ** 2))
+    shocks = beta * market + rng.normal(0.0, idio_sigma, n_days)
 
-    daily_returns = rng.normal(mu_daily, sigma_daily, n_days)
-    raw_path = np.cumprod(1 + daily_returns)
-    # pin the path so it ends exactly at the stated current price
-    scale = current_price / raw_path[-1]
-    path = raw_path * scale
+    early_drift = rng.normal(0.06, 0.12) / _TRADING_DAYS  # independent of the stated return
+    log_returns = shocks + early_drift
+    last_year = min(_TRADING_DAYS, n_days - 1)
+    tail = slice(n_days - last_year, n_days)
+    target = np.log1p(one_year_return_pct / 100.0)
+    log_returns[tail] = shocks[tail] + (target - shocks[tail].sum()) / last_year
+
+    log_returns[0] = 0.0  # day 0 is the starting level
+    path = np.exp(np.cumsum(log_returns))
+    path *= current_price / path[-1]  # pin the path to end exactly at the stated price
     return pd.Series(path, index=dates, name=ticker)
 
 
 def generate_benchmark_series(dates: pd.DatetimeIndex) -> pd.Series:
-    """Synthetic benchmark ('SPY'-like) series for the backtest engine, on the
-    given dates (the stored price dates) so it lines up with the universe no
-    matter how long ago the database was seeded."""
-    rng = np.random.default_rng(20260830)
-    daily_returns = rng.normal(0.00035, 0.011, len(dates))
-    path = 100.0 * np.cumprod(1 + daily_returns)
+    """Synthetic benchmark ('SPY'-like) series on the given dates (the stored
+    price dates), built from the same market factor every stock loads on."""
+    path = 100.0 * np.cumprod(1 + market_returns(len(dates)))
     return pd.Series(path, index=dates, name="SPY")
