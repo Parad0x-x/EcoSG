@@ -53,36 +53,46 @@ def size_positions(selected: pd.DataFrame, prices: pd.DataFrame, cfg,
         vol = np.where((vol == 0) | np.isnan(vol), np.nanmedian(vol), vol)
         raw_weight = pd.Series(1.0 / vol, index=df.index)
     weight = raw_weight / raw_weight.sum()
-    # single-name cap, with the excess redistributed proportionally to
-    # everything still under cap (a couple of iterations converges fine
-    # for portfolios this size)
-    for _ in range(10):
-        over = weight > cfg.max_position_weight
-        if not over.any():
+    sectors = df["sector"] if "sector" in df.columns else None
+    # Capping and dropping dust each renormalize, and either can push another
+    # name back over a cap, so repeat until the set of names stops changing.
+    for _ in range(len(df) + 1):
+        weight = _apply_caps(weight, sectors, cfg.max_position_weight, cfg.max_sector_weight)
+        keep = weight >= cfg.min_position_weight
+        if keep.all() or not keep.any():
             break
-        excess = (weight[over] - cfg.max_position_weight).sum()
-        weight[over] = cfg.max_position_weight
-        under = ~over
-        if under.sum() == 0:
-            break
-        weight[under] += excess * (weight[under] / weight[under].sum())
+        weight = weight[keep] / weight[keep].sum()
+        sectors = sectors[keep] if sectors is not None else None
+    df = df.loc[weight.index].copy()
     df["weight"] = weight
-    # sector cap
-    if "sector" in df.columns:
-        for _ in range(10):
-            sector_weight = df.groupby("sector")["weight"].transform("sum")
-            over = sector_weight > cfg.max_sector_weight
-            if not over.any():
-                break
-            for sector in df.loc[over, "sector"].unique():
-                sec_mask = df["sector"] == sector
-                sec_total = df.loc[sec_mask, "weight"].sum()
-                scale = cfg.max_sector_weight / sec_total
-                df.loc[sec_mask, "weight"] *= scale
-            df["weight"] = df["weight"] / df["weight"].sum()
-    df = df[df["weight"] >= cfg.min_position_weight]
-    df["weight"] = df["weight"] / df["weight"].sum()  # final renormalization
     return df
+
+_CAP_TOL = 1e-9
+
+def _apply_caps(weight: pd.Series, sectors: Optional[pd.Series],
+                max_position: float, max_sector: float) -> pd.Series:
+    """
+    Enforce single-name and sector caps exactly, handing freed weight to names
+    that still have room under both caps (water-filling). If the caps cannot
+    all hold with weights summing to 1 (too few names or sectors), the
+    leftover stays uninvested as cash rather than breaching a cap.
+    """
+    w = weight.astype(float).copy()
+    for _ in range(100):
+        w = w.clip(upper=max_position)
+        if sectors is not None:
+            sector_total = w.groupby(sectors).transform("sum")
+            w = w * (max_sector / sector_total).clip(upper=1.0)
+        shortfall = 1.0 - w.sum()
+        if shortfall <= _CAP_TOL:
+            break
+        room = w < max_position - _CAP_TOL
+        if sectors is not None:
+            room &= w.groupby(sectors).transform("sum") < max_sector - _CAP_TOL
+        if not room.any() or w[room].sum() <= 0:
+            break
+        w[room] += shortfall * w[room] / w[room].sum()
+    return w
 
 def generate_signals(scored_df: pd.DataFrame, prices: pd.DataFrame, cfg,
                       current_holdings: Optional[Dict[str, float]] = None) -> pd.DataFrame:
