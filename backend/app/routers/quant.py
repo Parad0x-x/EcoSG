@@ -124,3 +124,4 @@ def get_backtest(db: Session = Depends(get_db)):
             "means the signal is unproven. Synthetic mock prices: this demonstrates the "
             "mechanics, it is not evidence the strategy works."
         ),
+    )
