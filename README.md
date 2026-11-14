@@ -79,12 +79,16 @@ ecosg/
     ├── src/
     │   ├── App.tsx
     │   ├── api.ts            # Typed API client
-    │   ├── components.tsx
+    │   ├── components.tsx    # Badges, bars, glossary <Term> tooltips, "What does this mean?" panels
+    │   ├── glossary.ts       # Plain-English definitions used by tooltips and the Learn page
+    │   ├── insights.ts       # One-sentence takeaways that open each page
     │   └── pages/
-    │       ├── Dashboard.tsx     # ESG dashboard
-    │       ├── Lookup.tsx        # ESG + quant factor breakdown for one ticker
-    │       ├── QuantFactors.tsx  # ESG-vs-quant scatter, rankings, top picks, backtest
-    │       └── Portfolio.tsx     # Combined ESG + quant portfolio screener
+    │       ├── Dashboard.tsx     # Explore: ESG vs. 1-year return across all companies
+    │       ├── Lookup.tsx        # Company: ESG and quant side by side, each explained
+    │       ├── QuantFactors.tsx  # Factors: the five factors, ESG-vs-quant scatter, picks, backtest
+    │       ├── Portfolio.tsx     # Portfolio: both lenses for a mix of holdings
+    │       └── Learn.tsx         # Short lessons and the full glossary
+    ├── tests/                # node --test suite for insights.ts
     └── package.json
 ```
 
@@ -129,8 +133,16 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-The suite runs against a throwaway database, never your local `ecosg.db`. CI
-(`.github/workflows/ci.yml`) runs it plus the frontend lint and build on every push and PR.
+The suite runs against a throwaway database, never your local `ecosg.db`.
+
+Frontend logic tests use Node's built-in test runner (no extra dependency):
+
+```bash
+cd frontend
+npm test
+```
+
+CI (`.github/workflows/ci.yml`) runs both suites plus the frontend lint and build on every push and PR.
 
 ### Frontend
 
@@ -142,6 +154,11 @@ npm run dev
 
 Runs at `http://localhost:5173` and talks to the backend at `http://localhost:8000` by default
 (configurable via `VITE_API_BASE` in `frontend/.env`).
+
+The UI follows the visual language of [Maybe](https://github.com/maybe-finance/maybe)'s
+open-source design system (neutral grays, white cards, Geist type), reimplemented in plain CSS
+in `src/index.css`; no Maybe code is included. Geist loads from Google Fonts, with a system-font
+fallback when offline. It follows your OS light or dark setting.
 
 ## ESG scoring methodology (v0.1)
 
