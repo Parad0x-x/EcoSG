@@ -1,12 +1,17 @@
+// Mid-tone hues that hold contrast on both the light and the dark surface.
 export const SECTOR_COLORS: Record<string, string> = {
-  Technology: "#5fd28f",
-  Energy: "#f87171",
-  Utilities: "#60a5fa",
-  Financials: "#fbbf24",
-  "Health Care": "#c084fc",
-  "Consumer Staples": "#4ade80",
-  "Consumer Discretionary": "#fb923c",
-  "Communication Services": "#38bdf8",
-  Materials: "#a3a3a3",
-  Industrials: "#e879f9",
+  Technology: "#2e90fa",
+  Energy: "#e04f39",
+  Utilities: "#06aed4",
+  Financials: "#dc9a03",
+  "Health Care": "#9b6cf0",
+  "Consumer Staples": "#10a861",
+  "Consumer Discretionary": "#f27a1a",
+  "Communication Services": "#e2559c",
+  Materials: "#8a817c",
+  Industrials: "#5e6ad2",
 };
+
+// Chart ink shared by every Recharts chart.
+export const AXIS = { stroke: "#8a8a8a", tick: { fill: "#8a8a8a", fontSize: 12 } };
+export const GRID = "rgba(128, 128, 128, 0.18)";

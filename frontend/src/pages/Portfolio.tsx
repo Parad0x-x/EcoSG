@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, screenPortfolio, type PortfolioResult } from "../api";
-import { GradeBadge, ReturnValue } from "../components";
+import { Explain, FactorBar, GradeBadge, ReturnValue, Term } from "../components";
+import { esgPhrase } from "../insights";
 
 interface Row {
   ticker: string;
@@ -12,6 +14,15 @@ const DEFAULT_ROWS: Row[] = [
   { ticker: "XOM", weight: "30" },
   { ticker: "NEE", weight: "30" },
 ];
+
+// Weighted z-score past which we say the model has an opinion.
+const NOTABLE_Z = 0.3;
+
+function quantVerdict(z: number): string {
+  if (z >= NOTABLE_Z) return "the quant model likes this mix";
+  if (z <= -NOTABLE_Z) return "the quant model is not keen on this mix";
+  return "the quant model sees it as about average";
+}
 
 export default function Portfolio() {
   const [rows, setRows] = useState<Row[]>(DEFAULT_ROWS);
@@ -68,122 +79,150 @@ export default function Portfolio() {
 
   return (
     <>
-      <h1>Portfolio Screener</h1>
-      <p className="subtitle">
-        Enter holdings by ticker and weight (weights don't need to sum to 100 — they're
-        normalized automatically) to see a weighted ESG score and return-vs-ESG gap for the
-        portfolio as a whole.
-      </p>
+      <div className="page-head">
+        <p className="eyebrow">Portfolio</p>
+        <h1>Check a portfolio</h1>
+        <p className="subtitle">
+          List what you own and roughly how much of each. We'll show how the whole mix scores on
+          both lenses. <Term id="weight">Weights</Term> don't need to add up to 100; we scale them for you.
+        </p>
+      </div>
 
-      <div className="panel">
+      <section className="card">
         <form onSubmit={onSubmit}>
           {rows.map((row, i) => (
             <div className="holding-row" key={i}>
               <input
                 type="text"
                 placeholder="Ticker"
+                aria-label={`Holding ${i + 1} ticker`}
                 value={row.ticker}
                 onChange={(e) => updateRow(i, "ticker", e.target.value.toUpperCase())}
               />
               <input
                 type="number"
-                placeholder="Weight %"
+                placeholder="Weight"
+                aria-label={`Holding ${i + 1} weight percent`}
                 value={row.weight}
                 onChange={(e) => updateRow(i, "weight", e.target.value)}
                 min={0}
               />
-              <span style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>%</span>
-              <button type="button" className="remove-btn" onClick={() => removeRow(i)} aria-label="Remove holding">
+              <span className="muted">%</span>
+              <button type="button" className="remove-btn" onClick={() => removeRow(i)} aria-label={`Remove holding ${i + 1}`}>
                 ✕
               </button>
             </div>
           ))}
-          <div className="field-row">
-            <button type="button" className="secondary" onClick={addRow}>
+          <div className="field-row" style={{ marginTop: "0.75rem" }}>
+            <button type="button" className="btn-ghost" onClick={addRow}>
               + Add holding
             </button>
-            <span style={{ color: "var(--text-dim)", fontSize: "0.85rem" }}>
-              Total weight entered: {totalWeight.toFixed(0)}%
-            </span>
+            <button type="submit" className="btn" disabled={loading}>
+              {loading ? "Checking…" : "Check portfolio"}
+            </button>
+            <span className="muted small">Total entered: {totalWeight.toFixed(0)}%</span>
           </div>
-          <button type="submit" disabled={loading}>
-            {loading ? "Screening…" : "Screen portfolio"}
-          </button>
         </form>
-        {error && <div className="error-box" style={{ marginTop: "1rem" }}>{error}</div>}
-      </div>
+        {error && <div className="callout error" style={{ margin: "1rem 0 0" }}>{error}</div>}
+      </section>
 
       {result && (
         <>
-          <div className="panel">
+          <p className="takeaway" style={{ margin: "1.5rem 0 1rem" }}>
+            This portfolio is {esgPhrase(result.grade)} on accountability
+            {result.weighted_quant_score !== null
+              ? `, and ${quantVerdict(result.weighted_quant_score)}.`
+              : ". Quant scores are unavailable right now, so only the ESG side is shown."}
+          </p>
+
+          <div className="grid-2">
+            <section className="card lens lens-esg" aria-label="Portfolio ESG">
+              <span className="lens-label"><span><Term id="esg">ESG accountability</Term>, weighted</span></span>
+              <div className="lens-value">
+                <span className="lens-number">{result.weighted_esg_score.toFixed(0)}</span>
+                <span className="lens-of">out of 100</span>
+                <GradeBadge grade={result.grade} />
+              </div>
+              <div className="meter"><span style={{ width: `${result.weighted_esg_score}%` }} /></div>
+              <div className="meter-scale"><span>0 weak</span><span>100 strong</span></div>
+            </section>
+            <section className="card lens lens-quant" aria-label="Portfolio quant signal">
+              <span className="lens-label"><span><Term id="quant">Quant return signal</Term>, weighted</span></span>
+              {result.weighted_quant_score !== null ? (
+                <>
+                  <div className="lens-value">
+                    <span className="lens-number">
+                      {result.weighted_quant_score >= 0 ? "+" : ""}
+                      {result.weighted_quant_score.toFixed(2)}
+                    </span>
+                    <span className="lens-of"><Term id="zscore">z-score</Term>, 0 is average</span>
+                  </div>
+                  <FactorBar label="vs. average" value={result.weighted_quant_score} />
+                </>
+              ) : (
+                <p className="muted">Unavailable right now.</p>
+              )}
+            </section>
+          </div>
+
+          <section className="card">
             <div className="stat-grid">
               <div className="stat">
-                <div className="stat-label">Weighted ESG score</div>
-                <div className="stat-value">{result.weighted_esg_score.toFixed(1)}</div>
-              </div>
-              <div className="stat">
-                <div className="stat-label">Grade</div>
-                <div className="stat-value"><GradeBadge grade={result.grade} /></div>
-              </div>
-              <div className="stat">
-                <div className="stat-label">Weighted 1Y return</div>
+                <div className="stat-label">Weighted <Term id="return1y">1-year return</Term></div>
                 <div className="stat-value"><ReturnValue pct={result.weighted_one_year_return_pct} /></div>
               </div>
               <div className="stat">
-                <div className="stat-label">Return–ESG gap</div>
+                <div className="stat-label"><Term id="gap">Return-ESG gap</Term></div>
                 <div className="stat-value">{result.return_esg_gap > 0 ? "+" : ""}{result.return_esg_gap.toFixed(1)}</div>
+                <div className="stat-note">illustrative only</div>
               </div>
-              {result.weighted_quant_score !== null && (
-                <div className="stat">
-                  <div className="stat-label">Weighted quant factor score</div>
-                  <div className="stat-value">
-                    {result.weighted_quant_score >= 0 ? "+" : ""}
-                    {result.weighted_quant_score.toFixed(2)}
-                  </div>
-                </div>
-              )}
             </div>
-            <p style={{ color: "var(--text-dim)", fontSize: "0.82rem" }}>
-              Return–ESG gap is an illustrative placeholder metric (weighted return minus
-              weighted ESG score) meant to visualize the "returns vs. accountability" tradeoff —
-              not a risk-adjusted alpha model. Weighted quant factor score is the same portfolio's
-              weighted hedge-fund-style Value/Quality/Momentum/Growth/Low-Vol composite (z-score),
-              shown alongside rather than blended in, so the two lenses stay distinguishable.
-            </p>
-          </div>
 
-          <div className="panel">
-            <table>
-              <thead>
-                <tr>
-                  <th>Ticker</th>
-                  <th>Company</th>
-                  <th>Weight</th>
-                  <th>ESG Score</th>
-                  <th>Grade</th>
-                  <th>1Y Return</th>
-                  <th>Quant Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.holdings.map((h) => (
-                  <tr key={h.ticker}>
-                    <td><strong>{h.ticker}</strong></td>
-                    <td>{h.name}</td>
-                    <td>{h.weight_pct.toFixed(1)}%</td>
-                    <td>{h.composite_score.toFixed(1)}</td>
-                    <td><GradeBadge grade={h.grade} /></td>
-                    <td><ReturnValue pct={h.one_year_return_pct} /></td>
-                    <td>
-                      {h.quant_composite_score !== null
-                        ? `${h.quant_composite_score >= 0 ? "+" : ""}${h.quant_composite_score.toFixed(2)}`
-                        : "—"}
-                    </td>
+            <div className="table-wrap" style={{ marginTop: "1rem" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Holding</th>
+                    <th className="num">Weight</th>
+                    <th className="num">ESG</th>
+                    <th>Grade</th>
+                    <th className="num">1Y return</th>
+                    <th className="num">Quant</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {result.holdings.map((h) => (
+                    <tr key={h.ticker}>
+                      <td>
+                        <Link className="row-link" to={`/lookup/${h.ticker}`}>{h.ticker}</Link>
+                        <span className="cell-sub">{h.name}</span>
+                      </td>
+                      <td className="num">{h.weight_pct.toFixed(1)}%</td>
+                      <td className="num">{h.composite_score.toFixed(0)}</td>
+                      <td><GradeBadge grade={h.grade} /></td>
+                      <td className="num"><ReturnValue pct={h.one_year_return_pct} /></td>
+                      <td className="num">
+                        {h.quant_composite_score !== null
+                          ? `${h.quant_composite_score >= 0 ? "+" : ""}${h.quant_composite_score.toFixed(2)}`
+                          : "n/a"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Explain title="How is this calculated?">
+              <p>
+                Each score is a weighted average: a holding that is 40% of the portfolio counts for 40%
+                of the result. The ESG and quant results are kept separate on purpose.
+              </p>
+              <p>
+                The return-ESG gap is a rough placeholder (weighted return minus weighted ESG score),
+                not a risk-adjusted measure. Use it as a conversation starter, not a verdict.
+              </p>
+            </Explain>
+          </section>
         </>
       )}
     </>
