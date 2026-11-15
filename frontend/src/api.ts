@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+// Production builds call the API on the same origin (Vercel routes /api to the backend service).
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.PROD ? "" : "http://localhost:8000");
 
 export interface CompanySummary {
   ticker: string;
@@ -181,7 +182,7 @@ async function handle<T>(res: Response): Promise<T> {
 }
 
 export async function fetchCompanies(sector?: string): Promise<CompanySummary[]> {
-  const url = new URL(`${API_BASE}/api/companies`);
+  const url = new URL(`${API_BASE}/api/companies`, window.location.href);
   if (sector) url.searchParams.set("sector", sector);
   return handle(await fetch(url));
 }
@@ -207,7 +208,7 @@ export async function screenPortfolio(
 }
 
 export async function fetchQuantFactors(sector?: string): Promise<QuantFactorSummary[]> {
-  const url = new URL(`${API_BASE}/api/quant/factors`);
+  const url = new URL(`${API_BASE}/api/quant/factors`, window.location.href);
   if (sector) url.searchParams.set("sector", sector);
   return handle(await fetch(url));
 }

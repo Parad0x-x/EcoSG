@@ -13,3 +13,6 @@ dist/
 # Editor/OS
 .DS_Store
 .pytest_cache/
+
+# Vercel
+.vercel/

@@ -13,9 +13,12 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
+# Vercel sets VERCEL=1; its function filesystem is read-only except /tmp,
+# so the mock DB is reseeded there on each cold start.
 DB_PATH = os.environ.get(
     "ECOSG_DB_PATH",
-    os.path.join(os.path.dirname(os.path.dirname(__file__)), "ecosg.db"),
+    "/tmp/ecosg.db" if os.environ.get("VERCEL")
+    else os.path.join(os.path.dirname(os.path.dirname(__file__)), "ecosg.db"),
 )
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
