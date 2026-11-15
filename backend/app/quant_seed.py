@@ -36,6 +36,7 @@ SECTOR_PROFILES: dict[str, dict[str, tuple[float, float]]] = {
     "Communication Services":  dict(pe=(19, 6),  pb=(4.5, 1.8), roe=(0.16, 0.08), roa=(0.07, 0.03), gross_margin=(0.55, 0.12), debt_equity=(65, 25), rev_growth=(0.08, 0.08), eps_growth=(0.09, 0.12), beta=(1.05, 0.20)),
     "Materials":               dict(pe=(16, 4),  pb=(2.8, 0.8), roe=(0.15, 0.05), roa=(0.06, 0.02), gross_margin=(0.32, 0.08), debt_equity=(55, 20), rev_growth=(0.03, 0.06), eps_growth=(0.02, 0.12), beta=(1.00, 0.18)),
     "Industrials":             dict(pe=(19, 5),  pb=(4.0, 1.2), roe=(0.19, 0.06), roa=(0.07, 0.03), gross_margin=(0.34, 0.08), debt_equity=(65, 25), rev_growth=(0.05, 0.05), eps_growth=(0.06, 0.10), beta=(1.05, 0.18)),
+    "Real Estate":             dict(pe=(34, 10), pb=(2.2, 0.7), roe=(0.07, 0.03), roa=(0.03, 0.015), gross_margin=(0.60, 0.10), debt_equity=(110, 30), rev_growth=(0.05, 0.04), eps_growth=(0.04, 0.10), beta=(0.95, 0.18)),
 }
 
 DEFAULT_PROFILE = dict(pe=(18, 5), pb=(3.5, 1.5), roe=(0.16, 0.06), roa=(0.06, 0.03),

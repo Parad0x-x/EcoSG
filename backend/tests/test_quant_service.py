@@ -9,7 +9,7 @@ def test_price_history_is_one_aligned_wide_frame(client):
     finally:
         db.close()
 
-    assert prices.shape == (520, 30)
+    assert prices.shape == (520, 503)
     assert prices.index.is_monotonic_increasing
     assert not prices.isna().any().any()
 

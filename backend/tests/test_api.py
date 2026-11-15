@@ -9,15 +9,17 @@ def test_companies_and_sectors(client):
     companies = client.get("/api/companies").json()
     sectors = client.get("/api/sectors").json()
 
-    assert len(companies) == 30
-    assert len(sectors) == 10
+    assert len(companies) == 503  # full S&P 500 list in app/data/sp500.csv
+    assert len(sectors) == 11  # all GICS sectors
     tech = client.get("/api/companies", params={"sector": "Technology"}).json()
-    assert {c["ticker"] for c in tech} == {"AAPL", "MSFT", "NVDA"}
+    assert {"AAPL", "MSFT", "NVDA"} <= {c["ticker"] for c in tech}
+    assert all(c["sector"] == "Technology" for c in tech)
 
 
 def test_company_lookup_is_case_insensitive_and_404s(client):
     assert client.get("/api/companies/aapl").json()["ticker"] == "AAPL"
     assert client.get("/api/companies/NOPE").status_code == 404
+    assert client.get("/api/companies/BRK.B").json()["name"] == "Berkshire Hathaway"
 
 
 def test_company_returns_v02_esg_fields(client):
@@ -52,13 +54,13 @@ def test_stale_schema_is_detected(client):
     ensure_seeded()
 
     assert not schema_is_stale()
-    assert len(client.get("/api/companies").json()) == 30
+    assert len(client.get("/api/companies").json()) == 503
 
 
 def test_quant_factors_rank_whole_universe(client):
     rows = client.get("/api/quant/factors").json()
 
-    assert sorted(r["rank"] for r in rows) == list(range(1, 31))
+    assert sorted(r["rank"] for r in rows) == list(range(1, 504))
     assert client.get("/api/quant/companies/NOPE").status_code == 404
 
 

@@ -210,7 +210,7 @@ and all three are implemented in `portfolio.py`:
 **How many names, and how much turnover.** Concentrating in the single
 top-ranked stock is fragile, the whole point of a factor model is that
 it's directionally right on average, not stock-by-stock. This model holds
-the top `TOP_N` (8 by default, sized for the 30-name mock universe). But
+the top `TOP_N` (8 by default, first sized for the original 30-name mock universe; the universe is now the 503-name S&P 500). But
 naively re-ranking every period and holding exactly the top 8 causes
 needless turnover: a stock ranked #8 one month and #9 the next hasn't
 meaningfully changed, and trading it out just pays costs for no signal.
@@ -266,7 +266,7 @@ team would actually look at: CAGR, annualized volatility, Sharpe ratio, Sortino 
 investors don't mind upside volatility), max drawdown, Calmar ratio
 (return relative to worst drawdown, how much pain per unit of gain), beta
 to the benchmark, and excess CAGR over it. It also reports an
-equal-weight benchmark (all 30 names at 1/N; DeMiguel, Garlappi, Uppal 2009
+equal-weight benchmark (every name at 1/N; DeMiguel, Garlappi, Uppal 2009
 found 1/N hard to beat out of sample) and the **information coefficient**:
 at each rebalance, the rank correlation between the scores and the next
 period's returns, with its mean, t-stat, and number of periods. Harvey, Liu,
@@ -349,7 +349,7 @@ data.
 
 - **Momentum crash timing** (scaling momentum down after market drops) and **factor
   timing** in general: the evidence is weaker and less robust out of sample than for
-  the static factors, and timing rules add parameters a 30-stock mock universe cannot
+  the static factors, and timing rules add parameters a mock-data universe cannot
   validate. Residual momentum is the lower-risk answer to momentum crashes.
 
 ### Sources

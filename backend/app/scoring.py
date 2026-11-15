@@ -78,6 +78,8 @@ SECTOR_WEIGHTS: dict[str, tuple[float, float, float]] = {
     "Consumer Discretionary": (0.25, 0.42, 0.33),
     "Consumer Staples": (0.30, 0.37, 0.33),
     "Communication Services": (0.12, 0.55, 0.33),
+    # SASB Real Estate: energy, water and climate adaptation are the material topics.
+    "Real Estate": (0.42, 0.25, 0.33),
 }
 
 for _sector, _w in {**SECTOR_WEIGHTS, "default": DEFAULT_WEIGHTS}.items():
@@ -85,7 +87,7 @@ for _sector, _w in {**SECTOR_WEIGHTS, "default": DEFAULT_WEIGHTS}.items():
         raise ValueError(f"Bad pillar weights for {_sector}: {_w}")
 
 # --- 2. Industry benchmark ranges of the weighted pillar score -------------
-# (lo, hi) for a plausible wider universe of each sector, not fit to our 30.
+# (lo, hi) for a plausible wider universe of each sector, set by hand, not fit to the mock data.
 DEFAULT_BENCHMARK = (40.0, 80.0)
 
 SECTOR_BENCHMARKS: dict[str, tuple[float, float]] = {
@@ -99,6 +101,7 @@ SECTOR_BENCHMARKS: dict[str, tuple[float, float]] = {
     "Consumer Discretionary": (40.0, 78.0),
     "Consumer Staples": (45.0, 82.0),
     "Communication Services": (38.0, 78.0),
+    "Real Estate": (40.0, 78.0),
 }
 
 # MSCI 2020 Figure 8: seven equal bands on 0-100, best first.

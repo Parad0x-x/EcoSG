@@ -16,9 +16,22 @@ ESG_CONTEXT and CONTROVERSY_EVENTS below are equally mock. Every event is an
 illustrative placeholder ("Mock: ..."), never a real allegation about the
 named company. Event ages are in months before the seed date, so the seed
 script turns them into dates relative to the day it runs.
-"""
 
-SEED_COMPANIES = [
+The universe is the full S&P 500: data/sp500.csv holds the real constituent
+list (ticker, name, GICS sector, with "Information Technology" shortened to
+"Technology") from github.com/datasets/s-and-p-500-companies (PDDL licence).
+Only that list is real. The 30 CURATED_COMPANIES keep their hand-authored
+numbers; every other company gets mock numbers drawn deterministically per
+ticker, so reseeding always produces the same dataset.
+"""
+import csv
+import hashlib
+import random
+from pathlib import Path
+
+SP500_CSV = Path(__file__).parent / "data" / "sp500.csv"
+
+CURATED_COMPANIES = [
     ("AAPL", "Apple Inc.", "Technology", 227.5, 3450.0, 18.2, 22.1, 24.0, 62, 68, 78),
     ("MSFT", "Microsoft Corp.", "Technology", 428.9, 3190.0, 14.6, 24.8, 21.0, 74, 76, 82),
     ("NVDA", "NVIDIA Corp.", "Technology", 118.3, 2900.0, 45.9, 78.3, 48.0, 55, 60, 70),
@@ -137,3 +150,94 @@ CONTROVERSY_EVENTS = {
     "APD": [(2, 22, "Mock: hydrogen plant permit complaint")],
     "DIS": [(3, 14, "Mock: theme park labor dispute"), (2, 4, "Mock: content licensing complaint")],
 }
+
+# --- Mock numbers for the rest of the S&P 500 --------------------------------
+# sector -> (E, S, G) mean pillar scores and typical annual volatility %,
+# roughly matching the curated rows for each sector.
+_SECTOR_PILLARS: dict[str, tuple[float, float, float, float]] = {
+    "Energy": (37, 49, 62, 28),
+    "Utilities": (68, 62, 69, 17),
+    "Materials": (55, 55, 66, 25),
+    "Industrials": (53, 58, 68, 22),
+    "Technology": (62, 64, 74, 32),
+    "Financials": (55, 64, 74, 23),
+    "Health Care": (55, 64, 69, 22),
+    "Consumer Discretionary": (60, 55, 64, 30),
+    "Consumer Staples": (62, 68, 73, 15),
+    "Communication Services": (58, 53, 65, 28),
+    "Real Estate": (58, 58, 68, 22),
+}
+_DEFAULT_PILLARS = (56, 60, 68, 24)
+
+_GENERIC_ISSUES = [
+    "workplace safety complaint", "data privacy complaint", "supplier labor complaint",
+    "accounting disclosure question", "consumer protection complaint", "board pay dispute",
+]
+_SECTOR_ISSUES: dict[str, list[str]] = {
+    "Energy": ["emissions permit violation", "spill at an operating site", "methane leak report"],
+    "Utilities": ["rate-case billing complaint", "coal-ash storage complaint", "outage response probe"],
+    "Materials": ["plant emissions complaint", "tailings safety incident", "water discharge violation"],
+    "Industrials": ["factory safety citation", "export compliance question", "product recall"],
+    "Technology": ["user data breach", "export-control question", "product disclosure complaint"],
+    "Financials": ["regulatory fine over record-keeping", "fee practices complaint", "mis-selling settlement"],
+    "Health Care": ["product-safety litigation", "drug pricing inquiry", "patient data breach"],
+    "Consumer Discretionary": ["warehouse safety citation", "product recall", "franchise labor dispute"],
+    "Consumer Staples": ["packaging waste complaint", "sourcing deforestation complaint", "product labeling complaint"],
+    "Communication Services": ["user privacy fine", "content moderation complaint", "competition law inquiry"],
+    "Real Estate": ["tenant safety complaint", "building energy disclosure complaint", "zoning dispute"],
+}
+_HIGH_IMPACT_SECTORS = {"Energy", "Materials", "Utilities"}
+
+
+def _rng(ticker: str) -> random.Random:
+    return random.Random(int(hashlib.sha256(f"{ticker}:universe".encode()).hexdigest()[:12], 16))
+
+
+def _clip(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
+
+
+def _mock_company(ticker: str, name: str, sector: str):
+    """One seed row, its ESG context and its controversy events, all mock."""
+    r = _rng(ticker)
+    e_mu, s_mu, g_mu, vol_mu = _SECTOR_PILLARS.get(sector, _DEFAULT_PILLARS)
+    vol = round(_clip(r.gauss(vol_mu, 6), 10, 70), 1)
+    pillars = [round(_clip(r.gauss(mu, 9), 15, 95)) for mu in (e_mu, s_mu, g_mu)]
+    row = (
+        ticker, name, sector,
+        round(_clip(r.lognormvariate(4.7, 0.8), 8, 1500), 2),     # price, median ~110
+        round(_clip(r.lognormvariate(3.55, 0.85), 5, 900), 1),    # market cap $B, median ~35
+        round(_clip(r.gauss(10, vol * 0.9), -60, 150), 1),        # 1y return %
+        round(_clip(r.gauss(8, vol * 0.4), -30, 60), 1),          # 3y annualized %
+        vol,
+        *pillars,
+    )
+    context = (
+        round(_clip(r.gauss(82, 9), 50, 99)),                     # data coverage %
+        round(_clip(r.gauss(10, 4), 3, 25)),                      # rater spread
+        *(round(_clip(p - r.gauss(1, 4), 15, 95)) for p in pillars),  # prior-year pillars
+    )
+    issues = _SECTOR_ISSUES.get(sector, []) + _GENERIC_ISSUES
+    cat_weights = [25, 35, 25, 10, 5] if sector in _HIGH_IMPACT_SECTORS else [30, 40, 20, 8, 2]
+    events = [
+        (r.choices([1, 2, 3, 4, 5], weights=cat_weights)[0], r.randint(1, 34), f"Mock: {r.choice(issues)}")
+        for _ in range(r.choices([0, 1, 2, 3], weights=[35, 40, 20, 5])[0])
+    ]
+    return row, context, events
+
+
+def _build_universe():
+    curated = {row[0] for row in CURATED_COMPANIES}
+    rows, context, events = list(CURATED_COMPANIES), dict(ESG_CONTEXT), dict(CONTROVERSY_EVENTS)
+    with SP500_CSV.open(encoding="utf-8", newline="") as f:
+        for rec in csv.DictReader(f):
+            if rec["ticker"] in curated:
+                continue
+            row, ctx, evs = _mock_company(rec["ticker"], rec["name"], rec["sector"])
+            rows.append(row)
+            context[rec["ticker"]] = ctx
+            events[rec["ticker"]] = evs
+    return rows, context, events
+
+
+SEED_COMPANIES, ESG_CONTEXT, CONTROVERSY_EVENTS = _build_universe()

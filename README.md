@@ -13,6 +13,10 @@ is the whole point — it's the "gap" the platform is named after, made visible 
 
 > **Status:** MVP / demo. All financial and ESG figures are mock/illustrative data, not sourced
 > from a real market data or ESG data provider. Nothing in this app is investment advice.
+> The company list is real: all 503 S&P 500 constituents (ticker, name, GICS sector) from
+> `backend/app/data/sp500.csv`, taken from
+> [datasets/s-and-p-500-companies](https://github.com/datasets/s-and-p-500-companies) (PDDL).
+> 30 well-known names keep hand-authored mock numbers; the rest get deterministic mock numbers.
 
 ## What's in the MVP
 
@@ -209,7 +213,9 @@ composite_score   = max(0, industry_adjusted - controversy_penalty)
 
 Scores are computed on read for today's date, so controversy penalties decay as time passes.
 On startup the backend reseeds the database if its schema is out of date (for example an
-`ecosg.db` created before v0.2), since it only holds mock data.
+`ecosg.db` created before v0.2) or its company count no longer matches the seed list,
+since it only holds mock data. To refresh the S&P 500 list, replace `backend/app/data/sp500.csv`
+(columns `ticker,name,sector`, with "Information Technology" written as "Technology").
 
 Sector weights, benchmark ranges and the full ruleset live in `backend/app/scoring.py`. This is the single place that encodes "what does a good ESG score mean"; swapping
 in real vendor data later (a licensed ESG data feed + a market data API) should only require
@@ -226,7 +232,7 @@ composite = factor_weight_value   * cross_sectional_zscore(value_metrics)
 ```
 
 Each z-score is **rank-based** and **partially sector-adjusted**: each metric is measured
-against its sector mean shrunk toward the universe mean (three names per sector is too few for
+against its sector mean shrunk toward the universe mean (small sectors have too few names for
 a full within-sector z-score), then ranked across the whole universe, and each family score is
 re-standardized before weighting. See `docs/QUANT_RESEARCH.md` for why that matters and the
 academic grounding for each factor. The backtest also reports an equal-weight benchmark and the

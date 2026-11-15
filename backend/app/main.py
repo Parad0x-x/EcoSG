@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 
+from .data_seed import SEED_COMPANIES
 from .database import Base, engine
 from .routers import companies, portfolio, quant
 from .seed import seed
@@ -32,7 +33,7 @@ def ensure_seeded() -> None:
         return
     with engine.connect() as conn:
         count = conn.exec_driver_sql("SELECT COUNT(*) FROM companies").scalar()
-    if not count:
+    if count != len(SEED_COMPANIES):  # empty, or seeded from an older universe
         seed()
 
 
