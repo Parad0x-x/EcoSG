@@ -176,7 +176,7 @@ export default function QuantFactors() {
               name="Quant percentile"
               domain={[0, 100]}
               {...AXIS}
-              label={{ value: "Quant percentile (model wants it more to the right)", position: "insideBottom", offset: -14, fill: AXIS.stroke, fontSize: 12 }}
+              label={{ value: "Quant percentile (more wanted to the right)", position: "insideBottom", offset: -14, fill: AXIS.stroke, fontSize: 12 }}
             />
             <YAxis
               type="number"
