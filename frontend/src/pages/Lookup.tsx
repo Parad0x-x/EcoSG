@@ -93,7 +93,7 @@ export default function Lookup() {
           {loading && <p className="muted" style={{ margin: "0.75rem 0 0" }}>Loading {ticker}…</p>}
           {error && (
             <div className="callout error" style={{ margin: "0.75rem 0 0" }}>
-              {error}. We cover 30 large US companies; try one of these.
+              {error}. We cover the S&amp;P 500; check the ticker or try one of these.
             </div>
           )}
           {!loading && (

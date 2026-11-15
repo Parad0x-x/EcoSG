@@ -136,7 +136,7 @@ export default function Dashboard() {
             it always paid, they would slope up.
           </p>
           <p>
-            One year is a short window and these are only 30 companies, so treat any pattern as a
+            One year is a short window and every number here is mock data, so treat any pattern as a
             question to dig into, not a rule. Click a dot to see the company.
           </p>
         </Explain>

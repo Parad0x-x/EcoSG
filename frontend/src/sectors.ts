@@ -10,6 +10,7 @@ export const SECTOR_COLORS: Record<string, string> = {
   "Communication Services": "#e2559c",
   Materials: "#8a817c",
   Industrials: "#5e6ad2",
+  "Real Estate": "#7a9a01",
 };
 
 // Chart ink shared by every Recharts chart.
