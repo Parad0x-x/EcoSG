@@ -1,62 +1,77 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
-import { ApiError, fetchCompanies, fetchSectors, type CompanySummary } from "../api";
-import { Explain, GradeBadge, ReturnValue, SortHeader, Term } from "../components";
+import { ApiError, fetchCompanies, fetchQuantFactors, type CompanySummary } from "../api";
+import { Explain, GapLegend, GapTrack, GradeBadge, PAGE_SIZE, ReturnValue, ShowMore, SortHeader, Term } from "../components";
 import { correlationTakeaway, pearson } from "../insights";
+import { searchCompanies } from "../search";
 import { AXIS, GRID, SECTOR_COLORS } from "../sectors";
 
-type SortKey = "ticker" | "composite_score" | "one_year_return_pct";
+type SortKey = "ticker" | "composite_score" | "quant" | "gap" | "one_year_return_pct";
+
+interface Row extends CompanySummary {
+  quant: number | null;
+}
+
+// Missing quant coverage sorts last in either direction's "best first" view.
+const sortValue = (r: Row, key: Exclude<SortKey, "ticker">): number => {
+  if (key === "quant") return r.quant ?? -1;
+  if (key === "gap") return r.quant === null ? -1 : Math.abs(r.composite_score - r.quant);
+  return r[key];
+};
 
 export default function Dashboard() {
   const [companies, setCompanies] = useState<CompanySummary[] | null>(null);
-  const [sectors, setSectors] = useState<string[]>([]);
+  const [quantByTicker, setQuantByTicker] = useState<Map<string, number>>(new Map());
   const [sector, setSector] = useState("");
+  const [filter, setFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("composite_score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchSectors().then(setSectors).catch(() => {});
+    fetchCompanies()
+      .then(setCompanies)
+      .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load companies"));
+    // Best-effort: without quant data the table still works, showing the ESG marker alone.
+    fetchQuantFactors()
+      .then((qs) => setQuantByTicker(new Map(qs.map((q) => [q.ticker, q.percentile]))))
+      .catch(() => {});
   }, []);
 
-  useEffect(() => {
-    let stale = false;
-    fetchCompanies(sector || undefined)
-      .then((data) => {
-        if (stale) return;
-        setCompanies(data);
-        setError(null);
-      })
-      .catch((e) => {
-        if (!stale) setError(e instanceof ApiError ? e.message : "Failed to load companies");
-      });
-    return () => {
-      stale = true;
-    };
-  }, [sector]);
+  const sectors = useMemo(() => [...new Set((companies ?? []).map((c) => c.sector))].sort(), [companies]);
 
-  const sorted = useMemo(() => {
-    const copy = [...(companies ?? [])];
-    copy.sort((a, b) => {
-      const dir = sortDir === "asc" ? 1 : -1;
-      if (sortKey === "ticker") return a.ticker.localeCompare(b.ticker) * dir;
-      return (a[sortKey] - b[sortKey]) * dir;
-    });
+  const inSector = useMemo<Row[]>(
+    () =>
+      (companies ?? [])
+        .filter((c) => !sector || c.sector === sector)
+        .map((c) => ({ ...c, quant: quantByTicker.get(c.ticker) ?? null })),
+    [companies, sector, quantByTicker],
+  );
+
+  const rows = useMemo(() => {
+    // An empty filter keeps everything; otherwise reuse the header search's ranking with no cap.
+    const copy = filter.trim() ? (searchCompanies(inSector, filter, inSector.length) as Row[]) : [...inSector];
+    const dir = sortDir === "asc" ? 1 : -1;
+    copy.sort((a, b) =>
+      sortKey === "ticker" ? a.ticker.localeCompare(b.ticker) * dir : (sortValue(a, sortKey) - sortValue(b, sortKey)) * dir,
+    );
     return copy;
-  }, [companies, sortKey, sortDir]);
+  }, [inSector, filter, sortKey, sortDir]);
 
   const takeaway = useMemo(() => {
     if (!companies) return null;
     const r = pearson(
-      companies.map((c) => c.composite_score),
-      companies.map((c) => c.one_year_return_pct),
+      inSector.map((c) => c.composite_score),
+      inSector.map((c) => c.one_year_return_pct),
     );
-    return correlationTakeaway(r, companies.length);
-  }, [companies]);
+    return correlationTakeaway(r, inSector.length);
+  }, [companies, inSector]);
 
   function toggleSort(key: SortKey) {
+    setLimit(PAGE_SIZE);
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -65,10 +80,16 @@ export default function Dashboard() {
     }
   }
 
+  function pickSector(s: string) {
+    setSector(s);
+    setLimit(PAGE_SIZE);
+  }
+
+  const sortProps = { sortKey, sortDir, onSort: toggleSort };
+
   return (
     <>
       <div className="page-head">
-        <p className="eyebrow">Explore</p>
         <h1>Does doing good cost you returns?</h1>
         <p className="takeaway">{takeaway ?? (error ? "" : "Loading companies…")}</p>
         <p className="subtitle" style={{ marginBottom: 0 }}>
@@ -79,20 +100,20 @@ export default function Dashboard() {
 
       {error && <div className="callout error">{error}. Is the backend running on port 8000?</div>}
 
-      <section className="card">
-        <div className="chips" role="group" aria-label="Filter by sector">
-          <button type="button" className="chip" aria-pressed={sector === ""} onClick={() => setSector("")}>
-            All sectors
+      <div className="chips" role="group" aria-label="Filter by sector">
+        <button type="button" className="chip" aria-pressed={sector === ""} onClick={() => pickSector("")}>
+          All sectors
+        </button>
+        {sectors.map((s) => (
+          <button key={s} type="button" className="chip" aria-pressed={sector === s} onClick={() => pickSector(s)}>
+            <span className="swatch" style={{ background: SECTOR_COLORS[s] }} aria-hidden="true" />
+            {s}
           </button>
-          {sectors.map((s) => (
-            <button key={s} type="button" className="chip" aria-pressed={sector === s} onClick={() => setSector(s)}>
-              <span className="swatch" style={{ background: SECTOR_COLORS[s] }} aria-hidden="true" />
-              {s}
-            </button>
-          ))}
-        </div>
+        ))}
+      </div>
 
-        <ResponsiveContainer width="100%" height={340}>
+      <section className="card">
+        <ResponsiveContainer width="100%" height={380}>
           <ScatterChart margin={{ top: 10, right: 16, bottom: 24, left: 0 }}>
             <CartesianGrid stroke={GRID} />
             <XAxis
@@ -101,7 +122,7 @@ export default function Dashboard() {
               name="ESG score"
               domain={[0, 100]}
               {...AXIS}
-              label={{ value: "ESG score (more accountable →)", position: "insideBottom", offset: -14, fill: AXIS.stroke, fontSize: 12 }}
+              label={{ value: "ESG score (more accountable to the right)", position: "insideBottom", offset: -14, fill: AXIS.stroke, fontSize: 12 }}
             />
             <YAxis
               type="number"
@@ -111,14 +132,17 @@ export default function Dashboard() {
               {...AXIS}
               label={{ value: "1-year return", angle: -90, position: "insideLeft", fill: AXIS.stroke, fontSize: 12 }}
             />
-            <ZAxis range={[90, 90]} />
+            {/* Small, slightly see-through dots: 500 of them overlap. */}
+            <ZAxis range={[38, 38]} />
             <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CompanyTip />} />
             {Object.entries(SECTOR_COLORS).map(([sec, color]) => (
               <Scatter
                 key={sec}
                 name={sec}
-                data={sorted.filter((c) => c.sector === sec)}
+                data={inSector.filter((c) => c.sector === sec)}
                 fill={color}
+                fillOpacity={0.75}
+                isAnimationActive={false}
                 cursor="pointer"
                 onClick={(d) => {
                   const ticker = (d as { payload?: CompanySummary }).payload?.ticker;
@@ -144,22 +168,36 @@ export default function Dashboard() {
 
       <section className="card">
         <div className="card-head">
-          <h2>All companies</h2>
-          <span className="muted small">Click a column to sort</span>
+          <div>
+            <h2>{sector || "All companies"}, on both lenses</h2>
+            <GapLegend />
+          </div>
+          <input
+            type="search"
+            aria-label="Filter this table by company name or ticker"
+            placeholder="Filter by name or ticker"
+            value={filter}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setLimit(PAGE_SIZE);
+            }}
+          />
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <SortHeader label="Company" k="ticker" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                <th>Sector</th>
-                <SortHeader label="ESG score" k="composite_score" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                <th>Grade</th>
-                <SortHeader label="1Y return" k="one_year_return_pct" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="num" />
+                <SortHeader label="Company" k="ticker" {...sortProps} />
+                <th className="hide-sm">Sector</th>
+                <SortHeader label="ESG" k="composite_score" {...sortProps} className="num" />
+                <SortHeader label="Gap" k="gap" {...sortProps} />
+                <SortHeader label="Quant" k="quant" {...sortProps} />
+                <th className="hide-sm">Grade</th>
+                <SortHeader label="1Y return" k="one_year_return_pct" {...sortProps} className="num" />
               </tr>
             </thead>
             <tbody>
-              {sorted.map((c) => (
+              {rows.slice(0, limit).map((c) => (
                 <tr key={c.ticker} className="clickable" onClick={() => navigate(`/lookup/${c.ticker}`)}>
                   <td>
                     <Link className="row-link" to={`/lookup/${c.ticker}`} onClick={(e) => e.stopPropagation()}>
@@ -167,18 +205,24 @@ export default function Dashboard() {
                     </Link>
                     <span className="cell-sub">{c.name}</span>
                   </td>
-                  <td className="muted">{c.sector}</td>
-                  <td className="lens-esg" style={{ whiteSpace: "nowrap" }}>
-                    {c.composite_score.toFixed(0)}
-                    <span className="mini-bar" aria-hidden="true"><span style={{ width: `${c.composite_score}%` }} /></span>
-                  </td>
-                  <td><GradeBadge grade={c.grade} /></td>
+                  <td className="muted hide-sm">{c.sector}</td>
+                  <td className="num esg-num">{c.composite_score.toFixed(0)}</td>
+                  <td className="gap-cell"><GapTrack esg={c.composite_score} quant={c.quant} /></td>
+                  <td className="quant-num">{c.quant === null ? "" : c.quant.toFixed(0)}</td>
+                  <td className="hide-sm"><GradeBadge grade={c.grade} /></td>
                   <td className="num"><ReturnValue pct={c.one_year_return_pct} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {companies && rows.length === 0 ? (
+          <p className="muted" style={{ margin: "1rem 0 0" }}>
+            No company here matches "{filter.trim()}". Clear the filter or pick another sector.
+          </p>
+        ) : (
+          <ShowMore shown={limit} total={rows.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} />
+        )}
       </section>
     </>
   );
@@ -189,8 +233,8 @@ function CompanyTip({ active, payload }: { active?: boolean; payload?: { payload
   const c = payload[0].payload;
   return (
     <div className="chart-tip">
-      <strong>{c.ticker} · {c.name}</strong>
-      ESG {c.composite_score.toFixed(0)} ({c.grade}) · 1Y <ReturnValue pct={c.one_year_return_pct} />
+      <strong>{c.ticker}, {c.name}</strong>
+      ESG {c.composite_score.toFixed(0)} ({c.grade}), 1Y <ReturnValue pct={c.one_year_return_pct} />
     </div>
   );
 }

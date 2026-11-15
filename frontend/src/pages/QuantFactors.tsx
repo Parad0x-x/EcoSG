@@ -24,7 +24,7 @@ import {
   type QuantFactorSummary,
   type QuantTopPick,
 } from "../api";
-import { Explain, GradeBadge, SortHeader, Term } from "../components";
+import { Explain, GradeBadge, PAGE_SIZE, ShowMore, SortHeader, Term } from "../components";
 import { GLOSSARY, type TermId } from "../glossary";
 import { AXIS, GRID, SECTOR_COLORS } from "../sectors";
 
@@ -53,6 +53,7 @@ export default function QuantFactors() {
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("quant_rank");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -99,6 +100,7 @@ export default function QuantFactors() {
   }, [combined, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
+    setLimit(PAGE_SIZE);
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
@@ -125,7 +127,6 @@ export default function QuantFactors() {
   return (
     <>
       <div className="page-head">
-        <p className="eyebrow">Factors</p>
         <h1>How a quant fund would pick from the same companies</h1>
         <p className="takeaway">
           {loaded
@@ -146,8 +147,8 @@ export default function QuantFactors() {
         <div className="stat-grid">
           {FACTORS.map((id) => (
             <div className="stat" key={id}>
-              <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{GLOSSARY[id].term}</div>
-              <div className="stat-note" style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{GLOSSARY[id].short}</div>
+              <div className="stat-title">{GLOSSARY[id].term}</div>
+              <div className="stat-note">{GLOSSARY[id].short}</div>
             </div>
           ))}
         </div>
@@ -158,7 +159,7 @@ export default function QuantFactors() {
         <p className="muted" style={{ marginTop: 0 }}>
           Bottom right is the tension ecosg exists to show: companies the model likes that score poorly on ESG.
         </p>
-        <ResponsiveContainer width="100%" height={340}>
+        <ResponsiveContainer width="100%" height={380}>
           <ScatterChart margin={{ top: 10, right: 16, bottom: 24, left: 0 }}>
             <CartesianGrid stroke={GRID} />
             <XAxis
@@ -167,7 +168,7 @@ export default function QuantFactors() {
               name="Quant percentile"
               domain={[0, 100]}
               {...AXIS}
-              label={{ value: "Quant percentile (model wants it more →)", position: "insideBottom", offset: -14, fill: AXIS.stroke, fontSize: 12 }}
+              label={{ value: "Quant percentile (model wants it more to the right)", position: "insideBottom", offset: -14, fill: AXIS.stroke, fontSize: 12 }}
             />
             <YAxis
               type="number"
@@ -177,7 +178,7 @@ export default function QuantFactors() {
               {...AXIS}
               label={{ value: "ESG score", angle: -90, position: "insideLeft", fill: AXIS.stroke, fontSize: 12 }}
             />
-            <ZAxis range={[90, 90]} />
+            <ZAxis range={[38, 38]} />
             <ReferenceLine x={50} stroke={AXIS.stroke} strokeDasharray="4 4" />
             <ReferenceLine y={50} stroke={AXIS.stroke} strokeDasharray="4 4" />
             <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<RowTip />} />
@@ -187,6 +188,8 @@ export default function QuantFactors() {
                 name={sec}
                 data={combined.filter((c) => c.sector === sec)}
                 fill={color}
+                fillOpacity={0.75}
+                isAnimationActive={false}
                 cursor="pointer"
                 onClick={(d) => {
                   const ticker = (d as { payload?: CombinedRow }).payload?.ticker;
@@ -228,7 +231,7 @@ export default function QuantFactors() {
                     <td className="muted">#{p.rank}</td>
                     <td>
                       <Link className="row-link" to={`/lookup/${p.ticker}`} onClick={(ev) => ev.stopPropagation()}>{p.ticker}</Link>
-                      <span className="cell-sub">{p.name} · {p.sector}</span>
+                      <span className="cell-sub">{p.name}, {p.sector}</span>
                     </td>
                     <td className="num lens-quant" style={{ whiteSpace: "nowrap" }}>
                       {p.target_weight_pct.toFixed(1)}%
@@ -257,7 +260,7 @@ export default function QuantFactors() {
             <div className="stat">
               <div className="stat-label"><Term id="cagr">Yearly return (CAGR)</Term></div>
               <div className="stat-value">{fmtPct(m.cagr)}</div>
-              <div className="stat-note">Market: {fmtPct(m.benchmark_cagr)} · <Term id="equalWeight">Equal weight</Term>: {fmtPct(m.equal_weight_cagr)}</div>
+              <div className="stat-note">Market: {fmtPct(m.benchmark_cagr)}. <Term id="equalWeight">Equal weight</Term>: {fmtPct(m.equal_weight_cagr)}</div>
             </div>
             <div className="stat">
               <div className="stat-label"><Term id="sharpe">Sharpe ratio</Term></div>
@@ -337,7 +340,7 @@ export default function QuantFactors() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r) => (
+              {sorted.slice(0, limit).map((r) => (
                 <tr key={r.ticker} className="clickable" onClick={() => navigate(`/lookup/${r.ticker}`)}>
                   <td className="muted">#{r.quant_rank}</td>
                   <td>
@@ -353,6 +356,7 @@ export default function QuantFactors() {
             </tbody>
           </table>
         </div>
+        <ShowMore shown={limit} total={sorted.length} onMore={() => setLimit((n) => n + PAGE_SIZE)} />
       </section>
     </>
   );
@@ -363,8 +367,8 @@ function RowTip({ active, payload }: { active?: boolean; payload?: { payload: Co
   const r = payload[0].payload;
   return (
     <div className="chart-tip">
-      <strong>{r.ticker} · {r.name}</strong>
-      Quant {r.quant_percentile.toFixed(0)}th percentile · ESG {r.esg_score.toFixed(0)} ({r.esg_grade})
+      <strong>{r.ticker}, {r.name}</strong>
+      Quant {r.quant_percentile.toFixed(0)}th percentile, ESG {r.esg_score.toFixed(0)} ({r.esg_grade})
     </div>
   );
 }

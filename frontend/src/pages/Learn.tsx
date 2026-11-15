@@ -47,7 +47,6 @@ export default function Learn() {
   return (
     <>
       <div className="page-head">
-        <p className="eyebrow">Learn</p>
         <h1>The ideas behind the numbers</h1>
         <p className="subtitle">
           Six short ideas, each a minute or two to read, then a glossary of every term on the site.
@@ -56,20 +55,19 @@ export default function Learn() {
       </div>
 
       <div className="lesson-grid">
-        {LESSONS.map((l, i) => (
+        {LESSONS.map((l) => (
           <article className="card" key={l.title}>
-            <span className="lesson-num">{String(i + 1).padStart(2, "0")}</span>
-            <h2 style={{ marginTop: "0.25rem" }}>{l.title}</h2>
+            <h2>{l.title}</h2>
             <p>{l.body}</p>
-            <p><Link to={l.to} style={{ fontWeight: 500 }}>{l.cta} →</Link></p>
+            <p><Link to={l.to}>{l.cta}</Link></p>
           </article>
         ))}
       </div>
 
-      <h2 id="glossary" style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>Glossary</h2>
+      <h2 id="glossary" style={{ fontSize: "1.75rem", marginBottom: "1rem" }}>Glossary</h2>
       {GROUPS.map((g) => (
         <section className="card" key={g} aria-labelledby={`group-${g.replace(/\W+/g, "-")}`}>
-          <h3 id={`group-${g.replace(/\W+/g, "-")}`} className="eyebrow">{g}</h3>
+          <h3 id={`group-${g.replace(/\W+/g, "-")}`}>{g}</h3>
           <dl className="glossary">
             {entries
               .filter(([, e]) => e.group === g)

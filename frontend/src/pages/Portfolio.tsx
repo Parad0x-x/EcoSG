@@ -91,7 +91,6 @@ export default function Portfolio() {
   return (
     <>
       <div className="page-head">
-        <p className="eyebrow">Portfolio</p>
         <h1>Check a portfolio</h1>
         <p className="subtitle">
           Import your holdings from your broker, or list them by hand, and see how the whole mix
@@ -152,32 +151,41 @@ export default function Portfolio() {
           </p>
 
           <div className="grid-2">
-            <section className="card lens lens-esg" aria-label="Portfolio ESG">
-              <span className="lens-label"><span><Term id="esg">ESG accountability</Term>, weighted</span></span>
-              <div className="lens-value">
-                <span className="lens-number">{result.weighted_esg_score.toFixed(0)}</span>
-                <span className="lens-of">out of 100</span>
-                <GradeBadge grade={result.grade} />
+            <section className="lens-card lens-esg" aria-label="Portfolio ESG">
+              <div className="field">
+                <div className="field-label"><Term id="esg">ESG accountability</Term>, weighted</div>
+                <div className="field-value">
+                  <span className="field-number">{result.weighted_esg_score.toFixed(0)}</span>
+                  <span className="field-of">out of 100</span>
+                  <GradeBadge grade={result.grade} />
+                </div>
               </div>
-              <div className="meter"><span style={{ width: `${result.weighted_esg_score}%` }} /></div>
-              <div className="meter-scale"><span>0 weak</span><span>100 strong</span></div>
+              <div className="lens-body">
+                <div className="meter"><span style={{ width: `${result.weighted_esg_score}%` }} /></div>
+                <p className="muted" style={{ margin: "0.6rem 0 0" }}>0 is weak, 100 is strong.</p>
+              </div>
             </section>
-            <section className="card lens lens-quant" aria-label="Portfolio quant signal">
-              <span className="lens-label"><span><Term id="quant">Quant return signal</Term>, weighted</span></span>
-              {result.weighted_quant_score !== null ? (
-                <>
-                  <div className="lens-value">
-                    <span className="lens-number">
-                      {result.weighted_quant_score >= 0 ? "+" : ""}
-                      {result.weighted_quant_score.toFixed(2)}
-                    </span>
-                    <span className="lens-of"><Term id="zscore">z-score</Term>, 0 is average</span>
-                  </div>
+            <section className="lens-card lens-quant" aria-label="Portfolio quant signal">
+              <div className="field">
+                <div className="field-label"><Term id="quant">Quant return signal</Term>, weighted</div>
+                <div className="field-value">
+                  <span className="field-number">
+                    {result.weighted_quant_score === null
+                      ? "n/a"
+                      : `${result.weighted_quant_score >= 0 ? "+" : ""}${result.weighted_quant_score.toFixed(2)}`}
+                  </span>
+                  {result.weighted_quant_score !== null && (
+                    <span className="field-of"><Term id="zscore">z-score</Term>, 0 is average</span>
+                  )}
+                </div>
+              </div>
+              <div className="lens-body">
+                {result.weighted_quant_score !== null ? (
                   <FactorBar label="vs. average" value={result.weighted_quant_score} />
-                </>
-              ) : (
-                <p className="muted">Unavailable right now.</p>
-              )}
+                ) : (
+                  <p className="muted">Unavailable right now.</p>
+                )}
+              </div>
             </section>
           </div>
 

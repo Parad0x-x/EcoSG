@@ -99,3 +99,58 @@ export function SortHeader<K extends string>({
     </th>
   );
 }
+
+/**
+ * Both lenses on one 0 to 100 line: a green circle for ESG, a blue diamond for the
+ * quant percentile, and a neutral hatch for the gap. The scores share a scale but are never combined.
+ */
+export function GapTrack({ esg, quant, large = false }: { esg: number; quant: number | null; large?: boolean }) {
+  const label =
+    quant === null
+      ? `ESG score ${esg.toFixed(0)}, no quant coverage`
+      : `ESG score ${esg.toFixed(0)}, quant percentile ${quant.toFixed(0)}`;
+  // Keep the big labels inside the card when a score sits at either end.
+  const labelAt = (v: number) => `${Math.max(5, Math.min(95, v))}%`;
+  return (
+    <div className={`gap-track${large ? " gap-lg" : ""}`} role="img" aria-label={label}>
+      {quant !== null && (
+        <span className="gap-span" style={{ left: `${Math.min(esg, quant)}%`, width: `${Math.abs(esg - quant)}%` }} />
+      )}
+      <span className="gap-esg" style={{ left: `${esg}%` }} />
+      {quant !== null && <span className="gap-quant" style={{ left: `${quant}%` }} />}
+      {large && <span className="gap-label esg" style={{ left: labelAt(esg) }}>ESG {esg.toFixed(0)}</span>}
+      {large && quant !== null && (
+        <span className="gap-label quant" style={{ left: labelAt(quant) }}>Quant {quant.toFixed(0)}</span>
+      )}
+    </div>
+  );
+}
+
+/** What the two marker shapes mean, shown once above any table of gap tracks. */
+export function GapLegend() {
+  return (
+    <p className="gap-legend">
+      <span><i className="lens-dot" aria-hidden="true" />ESG score</span>
+      <span><i className="lens-dot quant" aria-hidden="true" />Quant percentile</span>
+      <span>Both run 0 to 100; the hatched stretch is the gap.</span>
+    </p>
+  );
+}
+
+export const PAGE_SIZE = 25;
+
+/** Footer for long tables: how many rows are showing and a button for the next batch. */
+export function ShowMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  const left = total - shown;
+  if (total === 0) return null; // still loading, or the page shows its own empty message
+  return (
+    <div className="table-foot">
+      <p className="muted small">Showing {Math.min(shown, total)} of {total}</p>
+      {left > 0 && (
+        <button type="button" className="btn-ghost" onClick={onMore}>
+          Show {Math.min(PAGE_SIZE, left)} more
+        </button>
+      )}
+    </div>
+  );
+}

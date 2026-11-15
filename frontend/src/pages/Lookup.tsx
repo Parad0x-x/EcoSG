@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { ApiError, fetchCompany, fetchQuantCompany, type CompanyDetail, type QuantCompanyDetail } from "../api";
-import { Explain, FactorBar, GradeBadge, PillarBar, ReturnValue, Term } from "../components";
+import CompanySearch from "../CompanySearch";
+import { Explain, FactorBar, GapTrack, GradeBadge, PillarBar, ReturnValue, Term } from "../components";
 import { ageText, companyTakeaway, factorSummary, lensGap, pillarSummary, trendText } from "../insights";
 
 interface LookupResult {
@@ -19,8 +20,6 @@ const TREND_ARROW = { improving: "↑", stable: "→", worsening: "↓" } as con
 
 export default function Lookup() {
   const ticker = useParams().ticker?.trim().toUpperCase();
-  const navigate = useNavigate();
-  const [input, setInput] = useState(ticker || "");
   const [result, setResult] = useState<LookupResult | null>(null);
 
   // The URL is the only trigger: submitting navigates, and this effect loads.
@@ -54,60 +53,32 @@ export default function Lookup() {
   const quant = current?.quant ?? null;
   const error = current?.error ?? null;
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const next = input.trim().toUpperCase();
-    if (next) navigate(`/lookup/${encodeURIComponent(next)}`);
-  }
-
-  const search = (
-    <form className="field-row" onSubmit={onSubmit} role="search">
-      <label htmlFor="ticker-input" className="muted">Ticker</label>
-      <input
-        id="ticker-input"
-        type="text"
-        placeholder="e.g. AAPL"
-        value={input}
-        onChange={(e) => setInput(e.target.value.toUpperCase())}
-        style={{ textTransform: "uppercase", width: 140 }}
-      />
-      <button type="submit" className="btn" disabled={loading}>
-        {loading ? "Looking up…" : "Look up"}
-      </button>
-    </form>
-  );
-
   if (!company) {
     return (
-      <>
-        <div className="page-head">
-          <p className="eyebrow">Company</p>
-          <h1>Look up a company</h1>
-          <p className="subtitle">
-            See how one company scores on accountability and on the traits quants use to pick
-            returns, with every number explained.
-          </p>
-        </div>
-        <div className="card">
-          {search}
-          {loading && <p className="muted" style={{ margin: "0.75rem 0 0" }}>Loading {ticker}…</p>}
-          {error && (
-            <div className="callout error" style={{ margin: "0.75rem 0 0" }}>
-              {error}. We cover the S&amp;P 500; check the ticker or try one of these.
-            </div>
-          )}
-          {!loading && (
-            <div className="quick-picks">
-              <span className="muted small">Try:</span>
-              {QUICK_PICKS.map((t) => (
-                <Link key={t} className="chip" to={`/lookup/${t}`} onClick={() => setInput(t)}>
-                  {t}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      </>
+      <div className="page-head">
+        <h1>Look up a company</h1>
+        <p className="subtitle">
+          See how one company scores on accountability and on the traits quants use to pick
+          returns, with every number explained.
+        </p>
+        <CompanySearch large />
+        {loading && <p className="muted" style={{ margin: "1rem 0 0" }}>Loading {ticker}…</p>}
+        {error && (
+          <div className="callout error" style={{ margin: "1rem 0 0", maxWidth: "34rem" }}>
+            {error}. We cover the S&amp;P 500; search by name above or try one of these.
+          </div>
+        )}
+        {!loading && (
+          <div className="quick-picks">
+            <span className="muted small">Try:</span>
+            {QUICK_PICKS.map((t) => (
+              <Link key={t} className="chip" to={`/lookup/${t}`}>
+                {t}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
     );
   }
 
@@ -122,24 +93,22 @@ export default function Lookup() {
   return (
     <>
       <div className="page-head">
-        <div className="card-head" style={{ marginBottom: "1rem" }}>
-          <p className="eyebrow" style={{ margin: 0 }}>{company.sector} · {company.ticker}</p>
-          {search}
-        </div>
+        <p className="kicker">{company.sector}, {company.ticker}</p>
         <h1>{company.name}</h1>
         <p className="takeaway">{companyTakeaway(company.name, esg.grade, quant ? quant.percentile : null)}</p>
       </div>
 
       <div className="grid-2">
-        <section className="card lens lens-esg" aria-label="ESG accountability">
-          <span className="lens-label"><Term id="esg">ESG accountability</Term></span>
-          <div className="lens-value">
-            <span className="lens-number">{esg.composite_score.toFixed(0)}</span>
-            <span className="lens-of">out of 100</span>
-            <GradeBadge grade={esg.grade} />
+        <section className="lens-card lens-esg" aria-label="ESG accountability">
+          <div className="field">
+            <div className="field-label"><Term id="esg">ESG accountability</Term></div>
+            <div className="field-value">
+              <span className="field-number">{esg.composite_score.toFixed(0)}</span>
+              <span className="field-of">out of 100</span>
+              <GradeBadge grade={esg.grade} />
+            </div>
           </div>
-          <div className="meter"><span style={{ width: `${esg.composite_score}%` }} /></div>
-          <div className="meter-scale"><span>0 weak</span><span>100 strong</span></div>
+          <div className="lens-body">
           <div className="signal-row">
             <span className={`status ${CONFIDENCE_CLASS[esg.confidence]}`}>
               <Term id="confidence">{esg.confidence} confidence</Term>
@@ -174,20 +143,23 @@ export default function Lookup() {
               {company.esg_raw.rater_spread.toFixed(0)} points.
             </p>
           </Explain>
+          </div>
         </section>
 
-        <section className="card lens lens-quant" aria-label="Quant return signal">
-          <span className="lens-label"><Term id="quant">Quant return signal</Term></span>
+        <section className="lens-card lens-quant" aria-label="Quant return signal">
+          <div className="field">
+            <div className="field-label"><Term id="quant">Quant return signal</Term></div>
+            <div className="field-value">
+              <span className="field-number">{quant ? quant.percentile.toFixed(0) : "n/a"}</span>
+              {quant && <span className="field-of"><Term id="percentile">percentile</Term>, rank #{quant.rank}</span>}
+            </div>
+          </div>
+          <div className="lens-body">
           {quant ? (
             <>
-              <div className="lens-value">
-                <span className="lens-number">{quant.percentile.toFixed(0)}</span>
-                <span className="lens-of"><Term id="percentile">percentile</Term> · rank #{quant.rank}</span>
-              </div>
-              <div className="meter"><span style={{ width: `${quant.percentile}%` }} /></div>
-              <div className="meter-scale"><span>0 least favored</span><span>100 most favored</span></div>
-              <p className="muted" style={{ margin: "0.75rem 0 0" }}>
-                Ranked against all covered companies on five <Term id="factor">factors</Term>.
+              <p className="muted">
+                100 is the stock the model wants most. Ranked against all covered companies on
+                five <Term id="factor">factors</Term>.
               </p>
               <Explain>
                 <p>
@@ -199,18 +171,22 @@ export default function Lookup() {
               </Explain>
             </>
           ) : (
-            <p className="muted" style={{ marginTop: "0.75rem" }}>
+            <p className="muted">
               We don't have quant coverage for {company.ticker} yet, so only the ESG side is shown.
             </p>
           )}
+          </div>
         </section>
       </div>
 
-      {gap && (
-        <div className="callout" style={{ margin: "0 0 1rem" }}>
-          <strong>The gap: </strong>
-          {gap.text} The two scores sit side by side on purpose; ecosg never blends them into one number.
-        </div>
+      {quant && gap && (
+        <section className="card">
+          <h2>The gap</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            {gap.text} Both scores run 0 to 100, so they can share a line, but ecosg never blends them into one number.
+          </p>
+          <GapTrack large esg={esg.composite_score} quant={quant.percentile} />
+        </section>
       )}
 
       <div className="grid-2">

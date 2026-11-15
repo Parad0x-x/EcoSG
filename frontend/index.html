@@ -7,8 +7,15 @@
     <meta name="description" content="See how companies score on ESG accountability and on the factors quants use to pick returns, side by side, in plain English." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
     <title>ecosg</title>
+    <!-- Apply a saved theme before first paint so the page never flashes the other one. -->
+    <script>
+      try {
+        var t = localStorage.getItem("ecosg-theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,5 +1,6 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link, NavLink, Route, Routes } from "react-router-dom";
+import CompanySearch from "./CompanySearch";
 import "./index.css";
 
 // Each page is its own chunk, so Recharts only loads on the pages that chart.
@@ -17,7 +18,29 @@ const NAV = [
   { to: "/learn", label: "Learn" },
 ];
 
+const THEME_KEY = "ecosg-theme";
+
+function currentTheme(): "light" | "dark" {
+  const set = document.documentElement.dataset.theme;
+  if (set === "light" || set === "dark") return set;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function App() {
+  // index.html applies a saved choice before first paint; with none saved, the system setting wins.
+  const [theme, setTheme] = useState(currentTheme);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem(THEME_KEY, next);
+    } catch {
+      /* private mode: the choice just lasts for this visit */
+    }
+    setTheme(next);
+  }
+
   return (
     <>
       <header className="app-header">
@@ -32,6 +55,21 @@ function App() {
             </NavLink>
           ))}
         </nav>
+        <div className="header-tools">
+          <CompanySearch />
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M8 1.75a6.25 6.25 0 0 1 0 12.5z" fill="currentColor" />
+            </svg>
+          </button>
+        </div>
       </header>
       <main>
         <Suspense fallback={<p className="muted">Loading…</p>}>

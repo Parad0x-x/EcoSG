@@ -161,10 +161,13 @@ npm run dev
 Runs at `http://localhost:5173` and talks to the backend at `http://localhost:8000` by default
 (configurable via `VITE_API_BASE` in `frontend/.env`).
 
-The UI follows the visual language of [Maybe](https://github.com/maybe-finance/maybe)'s
-open-source design system (neutral grays, white cards, Geist type), reimplemented in plain CSS
-in `src/index.css`; no Maybe code is included. Geist loads from Google Fonts, with a system-font
-fallback when offline. It follows your OS light or dark setting.
+The UI is built around the two lenses: green is always ESG accountability and blue is always
+the quant signal. Each gets its own color field, and wherever both scores appear they sit on one
+0 to 100 track (a green circle and a blue diamond, with the gap between them hatched) so the gap
+is visible without blending the numbers. It is plain CSS in `src/index.css`. The header has a
+company search by name or ticker and a light/dark toggle; the theme follows your OS setting until
+you pick one (saved in the browser as `ecosg-theme`). Bricolage Grotesque and Geist load from
+Google Fonts, with a system-font fallback when offline.
 
 ### Deploying to Vercel
 
