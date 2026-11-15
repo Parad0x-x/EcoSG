@@ -138,7 +138,6 @@ frontend/tests/      node --test suites for insights.ts, importHoldings.ts and s
 ## What's next, ranked
 
 1. Component/e2e tests for Lookup and Portfolio flows (Vitest/Playwright would be new deps, ask first)
-2. Neutral wording for mock controversy events, or fictional company names
-3. Historical ESG score trends instead of a point-in-time snapshot
-4. Replace the naive return-ESG gap with a risk-adjusted comparison
-5. Real data behind the existing seams (ask first)
+2. Historical ESG score trends instead of a point-in-time snapshot
+3. Replace the naive return-ESG gap with a risk-adjusted comparison
+4. Real data behind the existing seams (ask first)
