@@ -11,7 +11,7 @@
   --container: light-dark(#ffffff, #111b17);
   --text: light-dark(#0d1a16, #f0f5f2);
   --text-secondary: light-dark(#4a5853, #a8b6af);
-  --text-subdued: light-dark(#75827d, #7d8a85);
+  --text-subdued: light-dark(#65716c, #7d8a85);
   --border: light-dark(rgba(13, 26, 22, 0.1), rgba(255, 255, 255, 0.1));
   --border-strong: light-dark(rgba(13, 26, 22, 0.2), rgba(255, 255, 255, 0.2));
   --shadow: 0 1px 2px light-dark(rgba(13, 26, 22, 0.06), rgba(0, 0, 0, 0.4));
