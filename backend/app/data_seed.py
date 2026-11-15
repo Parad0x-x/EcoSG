@@ -12,9 +12,9 @@ Each row: (ticker, name, sector, price, market_cap_b, 1y_return_pct,
 3y_annualized_return_pct, volatility_pct, environmental, social,
 governance)
 
-ESG_CONTEXT and CONTROVERSY_EVENTS below are equally mock. Every event is an
-illustrative placeholder ("Mock: ..."), never a real allegation about the
-named company. Event ages are in months before the seed date, so the seed
+ESG_CONTEXT and CONTROVERSY_EVENTS below are equally mock. Every event title
+is a neutral placeholder ("Simulated ... incident") that names no issue, so
+nothing reads as a real allegation about the named company. Event ages are in months before the seed date, so the seed
 script turns them into dates relative to the day it runs.
 
 The universe is the full S&P 500: data/sp500.csv holds the real constituent
@@ -101,54 +101,55 @@ ESG_CONTEXT = {
     "DIS": (79, 12, 59, 55, 65),
 }
 
-# ticker -> [(category 1-5, months before seed date, title)]. Illustrative only.
-CONTROVERSY_EVENTS = {
-    "AAPL": [(2, 10, "Mock: supply-chain labor complaint"), (1, 28, "Mock: repair-policy consumer complaint")],
-    "MSFT": [(1, 26, "Mock: data privacy inquiry")],
-    "NVDA": [(2, 6, "Mock: export-control compliance question"), (2, 24, "Mock: product disclosure complaint")],
+# ticker -> [(category 1-5, months before seed date)]. Illustrative only;
+# _build_universe adds the neutral title.
+_CURATED_EVENTS = {
+    "AAPL": [(2, 10), (1, 28)],
+    "MSFT": [(1, 26)],
+    "NVDA": [(2, 6), (2, 24)],
     "XOM": [
-        (5, 7, "Mock: major spill at an operating site"),
-        (3, 16, "Mock: emissions reporting dispute"),
-        (2, 3, "Mock: community health complaint"),
+        (5, 7),
+        (3, 16),
+        (2, 3),
     ],
     "CVX": [
-        (5, 20, "Mock: pipeline rupture and cleanup"),
-        (4, 5, "Mock: flaring permit violations"),
-        (3, 12, "Mock: indigenous land-rights dispute"),
+        (5, 20),
+        (4, 5),
+        (3, 12),
     ],
-    "NEE": [(2, 22, "Mock: wildlife impact complaint at a wind site")],
-    "DUK": [(2, 10, "Mock: coal-ash storage complaint"), (1, 30, "Mock: rate-case billing complaint")],
-    "JPM": [(3, 8, "Mock: regulatory fine over record-keeping"), (2, 20, "Mock: overdraft fee complaint")],
-    "GS": [(4, 15, "Mock: fund mis-selling settlement"), (2, 5, "Mock: workplace culture complaint")],
+    "NEE": [(2, 22)],
+    "DUK": [(2, 10), (1, 30)],
+    "JPM": [(3, 8), (2, 20)],
+    "GS": [(4, 15), (2, 5)],
     "V": [],
-    "JNJ": [(4, 6, "Mock: product-safety litigation"), (3, 26, "Mock: marketing practices settlement")],
-    "PFE": [(3, 8, "Mock: drug pricing inquiry"), (2, 20, "Mock: clinical-trial disclosure complaint")],
-    "UNH": [(4, 3, "Mock: claims-denial investigation"), (3, 18, "Mock: patient data breach")],
-    "PG": [(2, 18, "Mock: palm-oil sourcing complaint")],
-    "KO": [(2, 6, "Mock: plastic packaging pollution complaint"), (2, 24, "Mock: water use dispute")],
-    "WMT": [(2, 10, "Mock: store worker scheduling complaint"), (1, 28, "Mock: supplier payment-terms complaint")],
-    "AMZN": [(3, 14, "Mock: warehouse safety citation"), (2, 4, "Mock: packaging waste complaint")],
+    "JNJ": [(4, 6), (3, 26)],
+    "PFE": [(3, 8), (2, 20)],
+    "UNH": [(4, 3), (3, 18)],
+    "PG": [(2, 18)],
+    "KO": [(2, 6), (2, 24)],
+    "WMT": [(2, 10), (1, 28)],
+    "AMZN": [(3, 14), (2, 4)],
     "TSLA": [
-        (4, 2, "Mock: factory workplace discrimination suit"),
-        (3, 10, "Mock: driver-assist safety probe"),
-        (2, 30, "Mock: governance disclosure complaint"),
+        (4, 2),
+        (3, 10),
+        (2, 30),
     ],
-    "HD": [(2, 20, "Mock: lead-paint renovation complaint")],
-    "META": [(4, 6, "Mock: user data privacy fine"), (3, 26, "Mock: content moderation labor complaint")],
-    "GOOGL": [(3, 14, "Mock: competition law fine"), (2, 4, "Mock: data centre water use complaint")],
-    "LIN": [(2, 18, "Mock: plant emissions permit complaint")],
-    "FCX": [(4, 3, "Mock: tailings dam safety incident"), (3, 18, "Mock: community relocation dispute")],
-    "HON": [(2, 6, "Mock: legacy contamination cleanup claim"), (2, 24, "Mock: export compliance complaint")],
-    "CAT": [(3, 14, "Mock: tax structure dispute"), (2, 4, "Mock: dealer emissions complaint")],
-    "RTX": [(4, 15, "Mock: defence contract pricing settlement"), (2, 5, "Mock: export licence complaint")],
+    "HD": [(2, 20)],
+    "META": [(4, 6), (3, 26)],
+    "GOOGL": [(3, 14), (2, 4)],
+    "LIN": [(2, 18)],
+    "FCX": [(4, 3), (3, 18)],
+    "HON": [(2, 6), (2, 24)],
+    "CAT": [(3, 14), (2, 4)],
+    "RTX": [(4, 15), (2, 5)],
     "COP": [
-        (4, 2, "Mock: methane leak at a production site"),
-        (3, 10, "Mock: Arctic drilling permit challenge"),
-        (2, 30, "Mock: royalty payment dispute"),
+        (4, 2),
+        (3, 10),
+        (2, 30),
     ],
-    "SO": [(2, 10, "Mock: power plant cost overrun complaint"), (1, 30, "Mock: coal-ash disposal complaint")],
-    "APD": [(2, 22, "Mock: hydrogen plant permit complaint")],
-    "DIS": [(3, 14, "Mock: theme park labor dispute"), (2, 4, "Mock: content licensing complaint")],
+    "SO": [(2, 10), (1, 30)],
+    "APD": [(2, 22)],
+    "DIS": [(3, 14), (2, 4)],
 }
 
 # --- Mock numbers for the rest of the S&P 500 --------------------------------
@@ -169,24 +170,14 @@ _SECTOR_PILLARS: dict[str, tuple[float, float, float, float]] = {
 }
 _DEFAULT_PILLARS = (56, 60, 68, 24)
 
-_GENERIC_ISSUES = [
-    "workplace safety complaint", "data privacy complaint", "supplier labor complaint",
-    "accounting disclosure question", "consumer protection complaint", "board pay dispute",
-]
-_SECTOR_ISSUES: dict[str, list[str]] = {
-    "Energy": ["emissions permit violation", "spill at an operating site", "methane leak report"],
-    "Utilities": ["rate-case billing complaint", "coal-ash storage complaint", "outage response probe"],
-    "Materials": ["plant emissions complaint", "tailings safety incident", "water discharge violation"],
-    "Industrials": ["factory safety citation", "export compliance question", "product recall"],
-    "Technology": ["user data breach", "export-control question", "product disclosure complaint"],
-    "Financials": ["regulatory fine over record-keeping", "fee practices complaint", "mis-selling settlement"],
-    "Health Care": ["product-safety litigation", "drug pricing inquiry", "patient data breach"],
-    "Consumer Discretionary": ["warehouse safety citation", "product recall", "franchise labor dispute"],
-    "Consumer Staples": ["packaging waste complaint", "sourcing deforestation complaint", "product labeling complaint"],
-    "Communication Services": ["user privacy fine", "content moderation complaint", "competition law inquiry"],
-    "Real Estate": ["tenant safety complaint", "building energy disclosure complaint", "zoning dispute"],
-}
 _HIGH_IMPACT_SECTORS = {"Energy", "Materials", "Utilities"}
+_RETIRED_TITLE_CHOICES = 9
+_SEVERITY = {1: "minor", 2: "moderate", 3: "significant", 4: "high-severity", 5: "severe"}
+
+
+def event_title(category: int) -> str:
+    """Neutral placeholder: real company names never get an invented issue."""
+    return f"Simulated {_SEVERITY[category]} incident"
 
 
 def _rng(ticker: str) -> random.Random:
@@ -217,18 +208,19 @@ def _mock_company(ticker: str, name: str, sector: str):
         round(_clip(r.gauss(10, 4), 3, 25)),                      # rater spread
         *(round(_clip(p - r.gauss(1, 4), 15, 95)) for p in pillars),  # prior-year pillars
     )
-    issues = _SECTOR_ISSUES.get(sector, []) + _GENERIC_ISSUES
     cat_weights = [25, 35, 25, 10, 5] if sector in _HIGH_IMPACT_SECTORS else [30, 40, 20, 8, 2]
-    events = [
-        (r.choices([1, 2, 3, 4, 5], weights=cat_weights)[0], r.randint(1, 34), f"Mock: {r.choice(issues)}")
-        for _ in range(r.choices([0, 1, 2, 3], weights=[35, 40, 20, 5])[0])
-    ]
+    events = []
+    for _ in range(r.choices([0, 1, 2, 3], weights=[35, 40, 20, 5])[0]):
+        events.append((r.choices([1, 2, 3, 4, 5], weights=cat_weights)[0], r.randint(1, 34)))
+        # Burn the draw that used to pick an issue title (9 choices per sector), so the
+        # mock dataset, and every score and grade built on it, stays as it was.
+        r.randrange(_RETIRED_TITLE_CHOICES)
     return row, context, events
 
 
 def _build_universe():
     curated = {row[0] for row in CURATED_COMPANIES}
-    rows, context, events = list(CURATED_COMPANIES), dict(ESG_CONTEXT), dict(CONTROVERSY_EVENTS)
+    rows, context, events = list(CURATED_COMPANIES), dict(ESG_CONTEXT), dict(_CURATED_EVENTS)
     with SP500_CSV.open(encoding="utf-8", newline="") as f:
         for rec in csv.DictReader(f):
             if rec["ticker"] in curated:
@@ -237,7 +229,8 @@ def _build_universe():
             rows.append(row)
             context[rec["ticker"]] = ctx
             events[rec["ticker"]] = evs
-    return rows, context, events
+    titled = {t: [(cat, months, event_title(cat)) for cat, months in evs] for t, evs in events.items()}
+    return rows, context, titled
 
 
 SEED_COMPANIES, ESG_CONTEXT, CONTROVERSY_EVENTS = _build_universe()

@@ -7,7 +7,7 @@ from app import scoring
 AS_OF = dt.date(2026, 6, 30)
 
 
-def event(category, months_ago, title="Mock: event"):
+def event(category, months_ago, title="Simulated moderate incident"):
     days = round(months_ago * scoring.DAYS_PER_MONTH)
     return scoring.Controversy(category, AS_OF - dt.timedelta(days=days), title)
 
@@ -69,3 +69,12 @@ def test_stricter_cap_wins_and_cap_never_raises_a_grade():
     assert both.grade == "BB"
     assert low.grade == low.grade_before_cap == "CCC"
     assert low.grade_cap_reason is None
+
+
+def test_seed_event_titles_never_name_an_issue():
+    # Real company names sit next to these events, so titles must stay neutral.
+    from app.data_seed import CONTROVERSY_EVENTS, event_title
+
+    events = [e for evs in CONTROVERSY_EVENTS.values() for e in evs]
+    assert events
+    assert all(title == event_title(category) for category, _, title in events)

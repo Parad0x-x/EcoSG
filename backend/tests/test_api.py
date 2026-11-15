@@ -33,7 +33,7 @@ def test_company_returns_v02_esg_fields(client):
     assert esg["controversy_events"]
     first = esg["controversy_events"][0]
     assert {"category", "occurred_on", "title", "age_months", "decay_factor", "penalty_points"} <= first.keys()
-    assert all(e["title"].startswith("Mock:") for e in esg["controversy_events"])
+    assert all(e["title"].startswith("Simulated ") for e in esg["controversy_events"])
     # XOM's mock data includes a category 5 event inside the last year.
     assert esg["grade"] == "BB"
     assert esg["grade_cap_reason"]

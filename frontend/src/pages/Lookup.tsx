@@ -223,7 +223,7 @@ export default function Lookup() {
             <div className="table-wrap">
               <table>
                 <caption className="muted small" style={{ textAlign: "left", paddingBottom: "0.4rem" }}>
-                  Illustrative mock events, not real allegations. Each one{" "}
+                  Simulated events, not real allegations. Each one{" "}
                   <Term id="decay">fades out after 3 years</Term>
                 </caption>
                 <thead>
@@ -235,8 +235,8 @@ export default function Lookup() {
                   </tr>
                 </thead>
                 <tbody>
-                  {esg.controversy_events.map((e) => (
-                    <tr key={`${e.occurred_on}-${e.title}`}>
+                  {esg.controversy_events.map((e, i) => (
+                    <tr key={i}>
                       <td>{e.title}</td>
                       <td className="num">{e.category} of 5</td>
                       <td className="num" style={{ whiteSpace: "nowrap" }}>{ageText(e.age_months)}</td>
