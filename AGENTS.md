@@ -126,7 +126,7 @@ frontend/tests/      node --test suites for insights.ts, importHoldings.ts and s
 - ⚠️ No frontend component or e2e tests; only pure-logic modules are tested.
 - ⚠️ Backtest is a mechanics demo: ~11 monthly rebalances, IC 0.06 (t 2.71) on mock prices, unproven.
 - ⚠️ Mock numbers sit next to real company names (e.g. BRK.B market cap is not real).
-- ⚠️ Mock controversy events use real company names (titles start with "Mock:").
+- ✅ Mock controversy events have neutral "Simulated <severity> incident" titles; no invented allegations
 - ⚠️ Import covers the 503 S&P 500 tickers only; real brokerage linking (e.g. SnapTrade) is paid, ask first.
 
 ## Environment
