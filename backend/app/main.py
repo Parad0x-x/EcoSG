@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 
@@ -63,6 +63,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Data is mock and only changes daily (controversy decay), so let browsers keep
+# reads 5 minutes and the Vercel CDN 1 hour; cached hits skip cold starts entirely.
+API_CACHE_CONTROL = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"
+
+
+@app.middleware("http")
+async def cache_api_reads(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if request.method == "GET" and path.startswith("/api/") and path != "/api/health" and response.status_code == 200:
+        response.headers.setdefault("Cache-Control", API_CACHE_CONTROL)
+    return response
+
 
 app.include_router(companies.router)
 app.include_router(portfolio.router)

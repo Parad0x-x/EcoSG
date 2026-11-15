@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .. import service
 from ..database import get_db
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api", tags=["companies"])
 @router.get("/companies", response_model=list[CompanySummaryOut])
 def list_companies(sector: str | None = None, db: Session = Depends(get_db)):
     breakdowns = service.score_all(db)
-    query = db.query(Company)
+    query = db.query(Company).options(selectinload(Company.financials))
     if sector:
         query = query.filter(Company.sector == sector)
     companies = query.order_by(Company.ticker).all()

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import datetime
 
+from sqlalchemy import insert
+
 from .data_seed import CONTROVERSY_EVENTS, ESG_CONTEXT, SEED_COMPANIES
 from .database import Base, SessionLocal, engine
 from .models import Company, ControversyEvent, EsgComponent, FactorFundamentals, FinancialMetric, PricePoint
@@ -24,6 +26,7 @@ def seed() -> None:
     reference_date = datetime.date.today()
 
     db = SessionLocal()
+    price_rows: list[dict] = []
     try:
         for row in SEED_COMPANIES:
             (
@@ -93,11 +96,13 @@ def seed() -> None:
             price_series = generate_price_history(
                 ticker, price, one_year_return_pct, volatility_pct, beta=fund["beta"]
             )
-            db.bulk_save_objects([
-                PricePoint(company_id=company.id, date=dt.date(), close=float(close))
+            price_rows.extend(
+                {"company_id": company.id, "date": dt.date(), "close": float(close)}
                 for dt, close in price_series.items()
-            ])
+            )
 
+        # One Core executemany: ~10x faster than building 260k ORM objects.
+        db.execute(insert(PricePoint), price_rows)
         db.commit()
         quant_service.clear_cache()
         print(f"Seeded {len(SEED_COMPANIES)} companies (ESG + quant factor data).")

@@ -112,3 +112,9 @@ def test_portfolio_screen_degrades_to_esg_only_and_logs(client, monkeypatch, cap
     assert res.status_code == 200
     assert res.json()["weighted_quant_score"] is None
     assert "Quant scoring failed" in caplog.text
+
+
+def test_api_reads_are_cacheable_but_health_and_errors_are_not(client):
+    assert "s-maxage" in client.get("/api/companies").headers["cache-control"]
+    assert "cache-control" not in client.get("/api/health").headers
+    assert "cache-control" not in client.get("/api/companies/NOPE").headers

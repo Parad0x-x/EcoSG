@@ -8,7 +8,7 @@ from __future__ import annotations
 import datetime as dt
 from dataclasses import asdict
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from . import scoring
 from .models import Company, EsgScoreOut
@@ -28,7 +28,9 @@ def score_company(c: Company, as_of: dt.date) -> scoring.ScoreBreakdown:
 def score_all(db: Session, as_of: dt.date | None = None) -> dict[int, scoring.ScoreBreakdown]:
     """Score breakdown for every company, keyed by company id."""
     as_of = as_of or dt.date.today()
-    return {c.id: score_company(c, as_of) for c in db.query(Company).all()}
+    # Eager-load both relationships: lazy loading costs 2 queries per company.
+    companies = db.query(Company).options(selectinload(Company.esg), selectinload(Company.controversies))
+    return {c.id: score_company(c, as_of) for c in companies}
 
 
 def sector_percentiles(db: Session, breakdowns: dict[int, scoring.ScoreBreakdown]) -> dict[int, float]:
