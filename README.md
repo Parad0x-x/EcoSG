@@ -162,6 +162,14 @@ open-source design system (neutral grays, white cards, Geist type), reimplemente
 in `src/index.css`; no Maybe code is included. Geist loads from Google Fonts, with a system-font
 fallback when offline. It follows your OS light or dark setting.
 
+### Deploying to Vercel
+
+`vercel.json` deploys both halves as one project using
+[Vercel Services](https://vercel.com/docs/services): `/api/*` goes to the FastAPI backend and
+everything else to the Vite build, so production builds call the API on the same origin.
+On Vercel the SQLite file lives in `/tmp` and is reseeded with mock data on each cold start.
+Run `vercel deploy` from the repo root. Live demo: https://ecosg-one.vercel.app
+
 ## ESG scoring methodology (v0.2)
 
 ```
