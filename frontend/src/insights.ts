@@ -107,3 +107,20 @@ export function correlationTakeaway(r: number | null, n: number): string {
       : `companies with higher ESG scores have earned ${strength} ${r > 0 ? "higher" : "lower"} returns over the last year`;
   return `Across these ${n} companies, ${body}.`;
 }
+
+/** Least-squares line through the points, for a chart's trend line. Null when there is nothing to fit. */
+export function trendLine(xs: number[], ys: number[]): { slope: number; intercept: number } | null {
+  const n = xs.length;
+  if (n < 3 || n !== ys.length) return null;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let sxy = 0;
+  let sxx = 0;
+  for (let i = 0; i < n; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+  }
+  if (sxx === 0) return null;
+  const slope = sxy / sxx;
+  return { slope, intercept: my - slope * mx };
+}

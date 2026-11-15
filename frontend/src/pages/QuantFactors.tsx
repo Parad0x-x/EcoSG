@@ -4,6 +4,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ReferenceLine,
   ResponsiveContainer,
   Scatter,
@@ -26,7 +27,7 @@ import {
 } from "../api";
 import { Explain, GradeBadge, PAGE_SIZE, ShowMore, SortHeader, Term } from "../components";
 import { GLOSSARY, type TermId } from "../glossary";
-import { AXIS, GRID, SECTOR_COLORS } from "../sectors";
+import { AXIS, GRID } from "../sectors";
 
 interface CombinedRow {
   ticker: string;
@@ -121,6 +122,13 @@ export default function QuantFactors() {
     [backtest]
   );
 
+  const pickTickers = new Set(picks.map((p) => p.ticker));
+
+  function openCompany(d: unknown) {
+    const ticker = (d as { payload?: CombinedRow }).payload?.ticker;
+    if (ticker) navigate(`/lookup/${ticker}`);
+  }
+
   const lowEsgPicks = picks.filter((p) => (esgByTicker.get(p.ticker)?.esg_score ?? 100) < ESG_LOW).length;
   const m = backtest?.metrics;
 
@@ -179,26 +187,47 @@ export default function QuantFactors() {
               label={{ value: "ESG score", angle: -90, position: "insideLeft", fill: AXIS.stroke, fontSize: 12 }}
             />
             <ZAxis range={[38, 38]} />
+            <ZAxis zAxisId="pick" range={[130, 130]} />
+            {/* The corner the page is about: wanted by the model, weak on accountability. */}
+            <ReferenceArea
+              x1={50}
+              x2={100}
+              y1={0}
+              y2={ESG_LOW}
+              fill="var(--warning)"
+              fillOpacity={0.09}
+              stroke="none"
+              label={{ value: "Model wants it, weak on ESG", position: "insideBottomRight", fill: "var(--warning)", fontSize: 12, fontWeight: 600 }}
+            />
             <ReferenceLine x={50} stroke={AXIS.stroke} strokeDasharray="4 4" />
-            <ReferenceLine y={50} stroke={AXIS.stroke} strokeDasharray="4 4" />
+            <ReferenceLine y={ESG_LOW} stroke={AXIS.stroke} strokeDasharray="4 4" />
             <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<RowTip />} />
-            {Object.entries(SECTOR_COLORS).map(([sec, color]) => (
-              <Scatter
-                key={sec}
-                name={sec}
-                data={combined.filter((c) => c.sector === sec)}
-                fill={color}
-                fillOpacity={0.75}
-                isAnimationActive={false}
-                cursor="pointer"
-                onClick={(d) => {
-                  const ticker = (d as { payload?: CombinedRow }).payload?.ticker;
-                  if (ticker) navigate(`/lookup/${ticker}`);
-                }}
-              />
-            ))}
+            <Scatter
+              name="Companies"
+              data={combined.filter((c) => !pickTickers.has(c.ticker))}
+              fill="var(--text-secondary)"
+              fillOpacity={0.4}
+              isAnimationActive={false}
+              cursor="pointer"
+              onClick={openCompany}
+            />
+            <Scatter
+              name="The model's picks"
+              zAxisId="pick"
+              data={combined.filter((c) => pickTickers.has(c.ticker))}
+              fill="var(--quant)"
+              stroke="var(--container)"
+              shape="diamond"
+              isAnimationActive={false}
+              cursor="pointer"
+              onClick={openCompany}
+            />
           </ScatterChart>
         </ResponsiveContainer>
+        <div className="legend">
+          <span><i className="dot" style={{ ["--c" as string]: "var(--text-secondary)" }} />One company</span>
+          <span><i className="diamond" style={{ ["--c" as string]: "var(--quant)" }} />One of the model's {picks.length} picks</span>
+        </div>
         <Explain title="How to read the four corners">
           <p><strong>Top right:</strong> strong on both. The model wants it and it is run responsibly.</p>
           <p><strong>Bottom right:</strong> the model wants it, but it scores poorly on ESG. This is where returns and accountability pull apart.</p>
@@ -333,7 +362,7 @@ export default function QuantFactors() {
               <tr>
                 <SortHeader label="Rank" k="quant_rank" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th>Company</th>
-                <SortHeader label={<>Quant <Term id="zscore">z-score</Term></>} k="quant_score" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="num" />
+                <SortHeader label="Quant z-score" k="quant_score" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="num" />
                 <th className="num"><Term id="percentile">Percentile</Term></th>
                 <SortHeader label="ESG score" k="esg_score" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="num" />
                 <th>Grade</th>

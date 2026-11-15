@@ -10,6 +10,7 @@ import {
   joinWords,
   lensGap,
   pearson,
+  trendLine,
   pillarSummary,
 } from "../src/insights.ts";
 
@@ -70,4 +71,10 @@ test("pearson and its takeaway", () => {
   assert.equal(pearson([1, 1, 1], [1, 2, 3]), null);
   assert.equal(correlationTakeaway(-0.3, 30), "Across these 30 companies, companies with higher ESG scores have earned slightly lower returns over the last year.");
   assert.equal(correlationTakeaway(0.05, 30), "Across these 30 companies, a higher ESG score has had almost nothing to do with last year's return.");
+});
+
+test("trend line fits a least-squares slope, or nothing when it cannot", () => {
+  assert.deepEqual(trendLine([1, 2, 3], [3, 5, 7]), { slope: 2, intercept: 1 });
+  assert.equal(trendLine([1, 2], [1, 2]), null);
+  assert.equal(trendLine([4, 4, 4], [1, 2, 3]), null);
 });

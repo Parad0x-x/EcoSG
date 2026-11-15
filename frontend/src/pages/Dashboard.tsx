@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
+import { CartesianGrid, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from "recharts";
 import { ApiError, fetchCompanies, fetchQuantFactors, type CompanySummary } from "../api";
 import { Explain, GapLegend, GapTrack, GradeBadge, PAGE_SIZE, ReturnValue, ShowMore, SortHeader, Term } from "../components";
-import { correlationTakeaway, pearson } from "../insights";
+import { correlationTakeaway, pearson, trendLine } from "../insights";
 import { searchCompanies } from "../search";
 import { AXIS, GRID, SECTOR_COLORS } from "../sectors";
 
@@ -70,6 +70,30 @@ export default function Dashboard() {
     return correlationTakeaway(r, inSector.length);
   }, [companies, inSector]);
 
+  // The chart keeps every company in view: a picked sector is highlighted, the rest fade to context.
+  const chart = useMemo(() => {
+    const all = companies ?? [];
+    const returns = all.map((c) => c.one_year_return_pct);
+    const xs = inSector.map((c) => c.composite_score);
+    const fit = trendLine(xs, inSector.map((c) => c.one_year_return_pct));
+    const [x0, x1] = [Math.min(...xs), Math.max(...xs)];
+    return {
+      rest: sector ? all.filter((c) => c.sector !== sector) : all,
+      // Fit the return axis to the data, on round 25% steps, always including zero.
+      low: Math.floor(Math.min(0, ...returns) / 25) * 25 || -25,
+      high: Math.ceil(Math.max(0, ...returns) / 25) * 25 || 25,
+      trend: fit && [
+        { x: x0, y: fit.intercept + fit.slope * x0 },
+        { x: x1, y: fit.intercept + fit.slope * x1 },
+      ] as const,
+    };
+  }, [companies, inSector, sector]);
+
+  function openCompany(d: unknown) {
+    const ticker = (d as { payload?: CompanySummary }).payload?.ticker;
+    if (ticker) navigate(`/lookup/${ticker}`);
+  }
+
   function toggleSort(key: SortKey) {
     setLimit(PAGE_SIZE);
     if (sortKey === key) {
@@ -113,9 +137,9 @@ export default function Dashboard() {
       </div>
 
       <section className="card">
-        <ResponsiveContainer width="100%" height={380}>
+        <ResponsiveContainer width="100%" height={400}>
           <ScatterChart margin={{ top: 10, right: 16, bottom: 24, left: 0 }}>
-            <CartesianGrid stroke={GRID} />
+            <CartesianGrid stroke={GRID} vertical={false} />
             <XAxis
               type="number"
               dataKey="composite_score"
@@ -129,29 +153,45 @@ export default function Dashboard() {
               dataKey="one_year_return_pct"
               name="1Y return"
               unit="%"
+              domain={[chart.low, chart.high]}
+              ticks={Array.from({ length: (chart.high - chart.low) / 25 + 1 }, (_, i) => chart.low + i * 25)}
               {...AXIS}
               label={{ value: "1-year return", angle: -90, position: "insideLeft", fill: AXIS.stroke, fontSize: 12 }}
             />
-            {/* Small, slightly see-through dots: 500 of them overlap. */}
             <ZAxis range={[38, 38]} />
+            <ReferenceLine y={0} stroke={AXIS.stroke} />
             <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<CompanyTip />} />
-            {Object.entries(SECTOR_COLORS).map(([sec, color]) => (
+            {/* One quiet color, see-through, so 500 overlapping dots read as density instead of confetti. */}
+            <Scatter
+              name="Companies"
+              data={chart.rest}
+              fill="var(--text-secondary)"
+              fillOpacity={sector ? 0.16 : 0.42}
+              isAnimationActive={false}
+              cursor="pointer"
+              onClick={openCompany}
+            />
+            {sector && (
               <Scatter
-                key={sec}
-                name={sec}
-                data={inSector.filter((c) => c.sector === sec)}
-                fill={color}
-                fillOpacity={0.75}
+                name={sector}
+                data={inSector}
+                fill={SECTOR_COLORS[sector]}
                 isAnimationActive={false}
                 cursor="pointer"
-                onClick={(d) => {
-                  const ticker = (d as { payload?: CompanySummary }).payload?.ticker;
-                  if (ticker) navigate(`/lookup/${ticker}`);
-                }}
+                onClick={openCompany}
               />
-            ))}
+            )}
+            {chart.trend && <ReferenceLine segment={chart.trend} stroke="var(--text)" strokeWidth={2} strokeDasharray="7 5" />}
           </ScatterChart>
         </ResponsiveContainer>
+        <div className="legend">
+          <span>
+            <i className="dot" style={{ ["--c" as string]: sector ? SECTOR_COLORS[sector] : "var(--text-secondary)" }} />
+            {sector ? `${sector} company` : "One company"}
+          </span>
+          {sector && <span><i className="dot" style={{ ["--c" as string]: "var(--text-subdued)" }} />Every other sector</span>}
+          <span><i style={{ ["--c" as string]: "var(--text)" }} />Trend across {sector || "all companies"}: flat means no link</span>
+        </div>
 
         <Explain title="How to read this chart">
           <p>

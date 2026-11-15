@@ -507,7 +507,9 @@ textarea:focus { outline: none; box-shadow: 0 0 0 4px var(--ring); }
 .chart-tip strong { display: block; font-size: 0.85rem; }
 .legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; }
 .legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
-.legend i { width: 14px; height: 3px; border-radius: 2px; background: var(--c); }
+.legend i { flex: none; width: 14px; height: 3px; border-radius: 2px; background: var(--c); }
+.legend i.dot { width: 9px; height: 9px; border-radius: 50%; }
+.legend i.diamond { width: 9px; height: 9px; border-radius: 1px; transform: rotate(45deg); }
 
 .quick-picks { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-top: 1rem; }
 
