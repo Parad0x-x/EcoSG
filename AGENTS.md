@@ -80,7 +80,7 @@ backend/app/
   models.py          ORM tables + Pydantic schemas
   scoring.py         ESG scoring framework
   service.py         ESG query + scoring glue
-  data_seed.py       30 mock companies, 3 per sector
+  data_seed.py       S&P 500 universe (503, from data/sp500.csv); 30 curated rows + deterministic mock numbers
   quant_seed.py      synthetic fundamentals, prices, benchmark
   seed.py            drop/create/seed, clears the quant cache
   quant/             factor model: data, factors, scoring, portfolio, backtest, service (cache)
@@ -89,16 +89,17 @@ backend/tests/       pytest suite
 frontend/src/
   api.ts             typed API client
   pages/             Dashboard (Explore), Lookup (Company), QuantFactors (Factors), Portfolio, Learn (lazy-loaded)
-  components.tsx     badges, bars, glossary <Term> tooltips, <Explain> panels
+  components.tsx     badges, bars, <GapTrack> (both scores on one line), glossary <Term> tooltips, <Explain> panels
+  CompanySearch.tsx  header search by name or ticker (ranking in search.ts)
   glossary.ts        plain-English definitions (tooltips + Learn page)
   insights.ts        one-sentence takeaways that open each page
   importHoldings.ts  parses broker CSV / pasted positions into weights, in the browser
   ImportPanel.tsx    portfolio import UI: drop zone, paste box, review table
   sectors.ts         sector colors, chart axis/grid styles
-frontend/tests/      node --test suites for insights.ts and importHoldings.ts
+frontend/tests/      node --test suites for insights.ts, importHoldings.ts and search.ts
 ```
 
-## Current build state (2026-11-13)
+## Current build state (2026-11-15)
 
 - ✅ ESG scoring v0.2: SASB-materiality weights with a 33% governance floor, industry-adjusted
   score, MSCI seven-band grades, dated controversy events with 12-month decay and grade caps,
@@ -107,20 +108,26 @@ frontend/tests/      node --test suites for insights.ts and importHoldings.ts
   residual momentum, idiosyncratic vol; backtest uses portfolio.py sizing with drifting weights,
   reports IC and an equal-weight benchmark; mock prices share a market factor, no baked-in momentum
 - ✅ 9 API endpoints, 5 frontend pages; startup reseeds a DB with an outdated schema
-- ✅ pytest suite (104 tests) and CI for backend tests + frontend lint/tests/build
-- ✅ UI redesigned as a guided explainer: Maybe-style neutral design in plain CSS, Geist font,
-  light/dark, a takeaway sentence per page, glossary tooltips, "What does this mean?" panels, Learn page
+- ✅ pytest suite (106 tests) and CI for backend tests + frontend lint/tests/build
+- ✅ UI is a guided explainer in plain CSS: green ESG and blue quant color fields, a gap track
+  showing both scores on one line, header company search, light/dark toggle (`ecosg-theme`),
+  tables paged 25 at a time, a takeaway sentence per page, glossary tooltips, Learn page
+- ✅ Scatterplots use neutral dots with one highlight (picked sector, or the model's picks) and a trend line
+- ✅ Full S&P 500 constituent list (real tickers/names/GICS sectors, mock numbers); Real Estate sector added
+- ✅ Vercel deploy as one project with services (`vercel.json`); prod https://ecosg-one.vercel.app, deploy by CLI
+- ✅ API reads are CDN-cached and scoring queries eager-load; first request after a deploy still takes ~10s
 - ✅ Portfolio import from a broker CSV or pasted positions; parsed in the browser, only tickers and
   weights reach the API; uncovered tickers are flagged and excluded
-- ✅ 14 frontend logic tests on Node's built-in runner (no new dependency)
+- ✅ 18 frontend logic tests on Node's built-in runner (no new dependency)
 - ✅ Backtest metrics start at the first invested rebalance; benchmark shares the price dates
 - ✅ Quant results cached per process (seed() clears it); prices load in one query
 - ✅ Routes code-split; Recharts only loads on Dashboard and Quant Factors
 - ⚠️ All data is mock. The return-ESG "gap" metric is a naive placeholder, not an alpha model.
 - ⚠️ No frontend component or e2e tests; only pure-logic modules are tested.
-- ⚠️ Backtest is a mechanics demo: ~11 monthly rebalances, IC -0.10 (t -1.57), unproven.
+- ⚠️ Backtest is a mechanics demo: ~11 monthly rebalances, IC 0.06 (t 2.71) on mock prices, unproven.
+- ⚠️ Mock numbers sit next to real company names (e.g. BRK.B market cap is not real).
 - ⚠️ Mock controversy events use real company names (titles start with "Mock:").
-- ⚠️ Import covers only the 30 mock companies; real brokerage linking (e.g. SnapTrade) is paid, ask first.
+- ⚠️ Import covers the 503 S&P 500 tickers only; real brokerage linking (e.g. SnapTrade) is paid, ask first.
 
 ## Environment
 
@@ -134,4 +141,4 @@ frontend/tests/      node --test suites for insights.ts and importHoldings.ts
 2. Neutral wording for mock controversy events, or fictional company names
 3. Historical ESG score trends instead of a point-in-time snapshot
 4. Replace the naive return-ESG gap with a risk-adjusted comparison
-5. Real data behind the existing seams, then deployment (ask first)
+5. Real data behind the existing seams (ask first)
