@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Route, Routes } from "react-router-dom";
 import CompanySearch from "./CompanySearch";
 import "./index.css";
@@ -29,6 +29,14 @@ function currentTheme(): "light" | "dark" {
 function App() {
   // index.html applies a saved choice before first paint; with none saved, the system setting wins.
   const [theme, setTheme] = useState(currentTheme);
+
+  // Until the user picks a theme, follow the system if it changes while the page is open.
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const follow = () => setTheme(currentTheme());
+    media.addEventListener("change", follow);
+    return () => media.removeEventListener("change", follow);
+  }, []);
 
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
